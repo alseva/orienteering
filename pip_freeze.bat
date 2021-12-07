@@ -1,0 +1,1 @@
+pip freeze --exclude pyinstaller --exclude altgraph --exclude future --exclude pefile --exclude pyinstaller-hooks-contrib --exclude pywin32-ctypes > requirements.txt
