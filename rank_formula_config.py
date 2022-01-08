@@ -1,0 +1,2 @@
+class RankFormulaConfig:
+    pass
