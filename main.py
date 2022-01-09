@@ -1,13 +1,17 @@
+import logging
+
 import pandas as pd
 
 from app_config import ApplicationConfig
+from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
 
 
 def main():
+    setup_logging()
+    logging.info('Загрузка конфигуратора приложения...')
     application_config = ApplicationConfig('Конфигуратор приложения.xlsx')
     rank_formula_config = RankFormulaConfig()
-
     protocols_df = load_protocols(application_config)
     current_rank_df = calculate_current_rank(rank_formula_config, protocols_df)
     save_current_rank(application_config, current_rank_df)
