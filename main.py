@@ -8,7 +8,6 @@ from rank_formula_config import RankFormulaConfig
 
 
 def main():
-    setup_logging()
     logging.info('Загрузка конфигуратора приложения...')
     application_config = ApplicationConfig('Конфигуратор приложения.xlsx')
     rank_formula_config = RankFormulaConfig()
@@ -30,4 +29,8 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
 
 
 if __name__ == '__main__':
-    main()
+    setup_logging()
+    try:
+        main()
+    except Exception as e:
+        logging.exception(e)
