@@ -1,0 +1,24 @@
+version: 1
+formatters:
+  # https://docs.python.org/3.9/library/logging.html#logrecord-attributes
+  brief:
+    format: '%(message)s'
+  precise:
+    format: '%(asctime)s %(levelname)s %(module)s:%(lineno)d %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: brief
+    level: INFO
+    stream: ext://sys.stdout
+  file:
+    class: logging.handlers.RotatingFileHandler
+    formatter: precise
+    level: DEBUG
+    filename: logs/app.log
+    maxBytes: 1073741824
+    backupCount: 2
+loggers:
+  root:
+    level: DEBUG
+    handlers: [ console, file ]
