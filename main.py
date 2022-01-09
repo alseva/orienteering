@@ -8,7 +8,6 @@ from rank_formula_config import RankFormulaConfig
 
 
 def main():
-    logging.info('Загрузка конфигуратора приложения...')
     application_config = ApplicationConfig('Конфигуратор приложения.xlsx')
     rank_formula_config = RankFormulaConfig()
     protocols_df = load_protocols(application_config)

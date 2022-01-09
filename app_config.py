@@ -7,6 +7,8 @@ from openpyxl import load_workbook
 
 class ApplicationConfig:
     def __init__(self, excel_file: str):
+        logging.info('Загрузка конфигуратора приложения...')
+
         self._excel_file = excel_file
         self._workbook = load_workbook(self._excel_file, read_only=True, keep_vba=False)
 
