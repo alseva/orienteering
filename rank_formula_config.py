@@ -37,7 +37,16 @@ class RankFormulaConfig:
 
     def _load_group_rank_df(self):
         group_ranks = list(self._workbook['Ранг группы'].values)
-        self.group_rank_df = pd.DataFrame(group_ranks[1:], columns=group_ranks[0])
+
+        df_group_rank_m = pd.DataFrame(group_ranks[1:], columns=group_ranks[0])
+        df_group_rank_m = df_group_rank_m.astype({'Возрастная группа': 'string', 'Ранг': 'int'})
+        df_group_rank_m['Возрастная группа'] = 'М' + df_group_rank_m['Возрастная группа']
+
+        df_group_rank_f = pd.DataFrame(group_ranks[1:], columns=group_ranks[0])
+        df_group_rank_f = df_group_rank_f.astype({'Возрастная группа': 'string', 'Ранг': 'int'})
+        df_group_rank_f['Возрастная группа'] = 'Ж' + df_group_rank_f['Возрастная группа']
+
+        self.group_rank_df = pd.concat([df_group_rank_m, df_group_rank_f])
 
     def _load_penalty_lack_races_df(self):
         penalty_lack_races = list(self._workbook['Штраф за отсутствие старта'].values)
@@ -53,4 +62,4 @@ class RankFormulaConfig:
 
 
 if __name__ == '__main__':
-    RankFormulaConfig('C:\Alex\Projects\Python\Orienteering\Конфигуратор формулы ранга.xlsx')
+    print(RankFormulaConfig('C:\Alex\Projects\Python\Orienteering\Конфигуратор формулы ранга.xlsx').group_rank_df)
