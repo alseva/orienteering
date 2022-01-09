@@ -4,9 +4,9 @@ import re
 
 import pandas as pd
 from bs4 import BeautifulSoup
-from logger import setup_logging
 
 from app_config import ApplicationConfig
+from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
 
 
@@ -26,9 +26,9 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
     # one iteration - one protocol -------------------------------------------------------------------------------------
     for name in os.listdir(application_config.protocols_dir):
         if os.path.isfile(os.path.join(application_config.protocols_dir, name)):
-            dfs = pd.read_html(application_config.protocols_dir + '/' + name)
+            dfs = pd.read_html(application_config.protocols_dir / name)
 
-            soup = BeautifulSoup(open(application_config.protocols_dir + '/' + name, 'r'), 'lxml')
+            soup = BeautifulSoup(open(application_config.protocols_dir / name, 'r'), 'lxml')
 
             heading2 = ['h2']
             heading1 = ['h1']
@@ -74,9 +74,9 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                         dfs[tbl]['Результат'].dt.second)
                 dfs[tbl]['Результат'] = dfs[tbl]['Результат'].dt.time
             dfs_union = pd.concat(dfs)
-            dfs_union.to_excel(application_config.rank_dir + '/' + 'tmp.xlsx')
-            df_not_started.to_excel(application_config.rank_dir + '/' + 'tmp_not_started.xlsx')
-            df_left_race.to_excel(application_config.rank_dir + '/' + 'tmp_left_race.xlsx')
+            dfs_union.to_excel(application_config.rank_dir / 'tmp.xlsx')
+            df_not_started.to_excel(application_config.rank_dir / 'tmp_not_started.xlsx')
+            df_left_race.to_excel(application_config.rank_dir / 'tmp_left_race.xlsx')
 
     return pd.DataFrame()
 
