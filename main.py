@@ -6,7 +6,7 @@ from rank_formula_config import RankFormulaConfig
 
 def main():
     application_config = ApplicationConfig('Конфигуратор приложения.xlsx')
-    rank_formula_config = RankFormulaConfig()
+    rank_formula_config = RankFormulaConfig('Конфигуратор формулы ранга.xlsx')
 
     protocols_df = load_protocols(application_config)
     current_rank_df = calculate_current_rank(rank_formula_config, protocols_df)
