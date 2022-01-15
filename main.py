@@ -1,16 +1,17 @@
 import logging
 import os
 import re
+import warnings
 
 import pandas as pd
 from bs4 import BeautifulSoup
 
 from app_config import ApplicationConfig
 from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE
+from errors import Error, AppConfigValidationError
 from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
 from validation import do_validation
-from validation.exceptions import AppException
 
 
 def main():
@@ -104,8 +105,12 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
 if __name__ == '__main__':
     setup_logging()
     try:
-        main()
-    except AppException as e:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            main()
+    except AppConfigValidationError as e:
+        logging.error(f'Application config validation failed. {e}')
+    except Error as e:
         logging.error(e)
     except Exception as e:
         logging.exception(e)
