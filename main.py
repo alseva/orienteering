@@ -14,7 +14,7 @@ def main():
     application_config = ApplicationConfig('Конфигуратор приложения.xlsx')
     rank_formula_config = RankFormulaConfig('Конфигуратор формулы ранга.xlsx')
     protocols_df = load_protocols(application_config, rank_formula_config)
-    current_rank_df = calculate_current_rank(rank_formula_config, protocols_df)
+    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df)
     save_current_rank(application_config, current_rank_df)
 
 
@@ -73,15 +73,23 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                         dfs[tbl]['Результат'].dt.minute * 60 +
                         dfs[tbl]['Результат'].dt.second)
                 dfs[tbl]['Результат'] = dfs[tbl]['Результат'].dt.time
-            dfs_union = pd.concat(dfs)
-            dfs_union.to_excel(application_config.rank_dir / 'tmp.xlsx')
-            df_not_started.to_excel(application_config.rank_dir / 'tmp_not_started.xlsx')
-            df_left_race.to_excel(application_config.rank_dir / 'tmp_left_race.xlsx')
 
-    return pd.DataFrame()
+            dfs_union = dfs_union.append(pd.concat(dfs))
+            dfs_union.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
+            df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx')
+            df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx')
+
+    return dfs_union
 
 
-def calculate_current_rank(rank_formula_config: RankFormulaConfig, protocols_df: pd.DataFrame) -> pd.DataFrame:
+def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
+                           protocols_df: pd.DataFrame) -> pd.DataFrame:
+    def remove_duplicates_and_convert_to_str(s):
+        return ''.join(set(s))
+
+    protocols_df['Коэффициент вида старта'] = protocols_df['Соревнование'].str.findall('общий старт').apply(
+        remove_duplicates_and_convert_to_str)
+    protocols_df.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
     return pd.DataFrame()
 
 
