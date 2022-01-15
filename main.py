@@ -11,11 +11,11 @@ from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE
 from errors import Error, AppConfigValidationError, RankConfigValidationError
 from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
-from validation import do_validation
+from validation.app_config_validation import check_app_config
+from validation.rank_config_validation import check_rank_config
 
 
 def main():
-    do_validation()
     application_config = ApplicationConfig(APP_CONFIG_FILE)
     rank_formula_config = RankFormulaConfig(RANK_CONFIG_FILE)
     protocols_df = load_protocols(application_config, rank_formula_config)
@@ -107,6 +107,8 @@ if __name__ == '__main__':
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
+            check_app_config()
+            check_rank_config()
             main()
     except AppConfigValidationError as e:
         logging.error(f'Application config validation failed. {e}')
