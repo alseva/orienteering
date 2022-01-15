@@ -4,3 +4,7 @@ class Error(Exception):
 
 class AppConfigValidationError(Error):
     pass
+
+
+class RankConfigValidationError(Error):
+    pass

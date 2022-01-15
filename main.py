@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 
 from app_config import ApplicationConfig
 from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE
-from errors import Error, AppConfigValidationError
+from errors import Error, AppConfigValidationError, RankConfigValidationError
 from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
 from validation import do_validation
@@ -110,6 +110,8 @@ if __name__ == '__main__':
             main()
     except AppConfigValidationError as e:
         logging.error(f'Application config validation failed. {e}')
+    except RankConfigValidationError as e:
+        logging.error(f'Rank config validation failed. {e}')
     except Error as e:
         logging.error(e)
     except Exception as e:
