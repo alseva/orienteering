@@ -34,9 +34,9 @@ def check_workbook(wb: Workbook):
     protocols_dir = Path(main_settings['Путь к папке со всеми протоколами'])
     if protocol_source_type == 'Файл':
         if not protocols_dir.is_dir():
-            raise AppConfigValidationError('Directory with protocols not exist.')
+            raise AppConfigValidationError(f'Directory with protocols not exist: "{protocols_dir}".')
         if not any(protocols_dir.glob('*.htm')):
-            raise AppConfigValidationError('Directory with protocols does not contain any .htm-file.')
+            raise AppConfigValidationError(f'Directory "{protocols_dir}" does not contain any protocols (.htm files).')
 
     if protocol_source_type == 'Ссылка':
         check_urls_to_protocols(wb)
