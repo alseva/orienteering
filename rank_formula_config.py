@@ -1,6 +1,10 @@
 import pandas as pd
 from openpyxl import load_workbook
 
+from constants import RANK_CONFIG_MAIN_SETTINGS_SHEET, RANK_CONFIG_RACE_TYPE_SHEET, RANK_CONFIG_RACE_LEVEL_SHEET, \
+    RANK_CONFIG_GROUP_RANK_SHEET, RANK_CONFIG_PENALTY_LACK_RACES_SHEET, RANK_CONFIG_PENALTY_NOT_STARTED_SHEET, \
+    RANK_CONFIG_PENALTY_LEFT_RACE_SHEET, RANK_CONFIG_FILE
+
 
 class RankFormulaConfig:
     def __init__(self, excel_file: str):
@@ -24,19 +28,19 @@ class RankFormulaConfig:
         self._load_penalty_left_race_df()
 
     def _load_main_settings(self):
-        main_settings = list(self._workbook['Общие настройки'].values)
+        main_settings = list(self._workbook[RANK_CONFIG_MAIN_SETTINGS_SHEET].values)
         self.race_percentage_for_final_rank = main_settings[1][1]
 
     def _load_race_type_df(self):
-        race_types = list(self._workbook['Коэффициент вида старта'].values)
+        race_types = list(self._workbook[RANK_CONFIG_RACE_TYPE_SHEET].values)
         self.race_type_df = pd.DataFrame(race_types[1:], columns=race_types[0])
 
     def _load_race_level_df(self):
-        race_levels = list(self._workbook['Коэффициент уровня старта'].values)
+        race_levels = list(self._workbook[RANK_CONFIG_RACE_LEVEL_SHEET].values)
         self.race_level_df = pd.DataFrame(race_levels[1:], columns=race_levels[0])
 
     def _load_group_rank_df(self):
-        group_ranks = list(self._workbook['Ранг группы'].values)
+        group_ranks = list(self._workbook[RANK_CONFIG_GROUP_RANK_SHEET].values)
 
         df_group_rank_m = pd.DataFrame(group_ranks[1:], columns=group_ranks[0])
         df_group_rank_m = df_group_rank_m.astype({'Возрастная группа': 'string', 'Ранг': 'int'})
@@ -49,17 +53,18 @@ class RankFormulaConfig:
         self.group_rank_df = pd.concat([df_group_rank_m, df_group_rank_f])
 
     def _load_penalty_lack_races_df(self):
-        penalty_lack_races = list(self._workbook['Штраф за отсутствие старта'].values)
+        penalty_lack_races = list(self._workbook[RANK_CONFIG_PENALTY_LACK_RACES_SHEET].values)
         self.penalty_lack_races_df = pd.DataFrame(penalty_lack_races[1:], columns=penalty_lack_races[0])
 
     def _load_penalty_not_started_df(self):
-        penalty_not_started = list(self._workbook['Штраф за не стартовал'].values)
+        penalty_not_started = list(self._workbook[RANK_CONFIG_PENALTY_NOT_STARTED_SHEET].values)
         self.penalty_not_started_df = pd.DataFrame(penalty_not_started[1:], columns=penalty_not_started[0])
 
     def _load_penalty_left_race_df(self):
-        penalty_left_race = list(self._workbook['Штраф за снят'].values)
+        penalty_left_race = list(self._workbook[RANK_CONFIG_PENALTY_LEFT_RACE_SHEET].values)
         self.penalty_left_race_df = pd.DataFrame(penalty_left_race[1:], columns=penalty_left_race[0])
 
 
 if __name__ == '__main__':
-    print(RankFormulaConfig('C:\Alex\Projects\Python\Orienteering\Конфигуратор формулы ранга.xlsx').group_rank_df)
+    rank_config = RankFormulaConfig(RANK_CONFIG_FILE)
+    print(rank_config.group_rank_df)

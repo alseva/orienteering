@@ -1,18 +1,23 @@
 import logging
 import os
 import re
+import warnings
 
 import pandas as pd
 from bs4 import BeautifulSoup
 
 from app_config import ApplicationConfig
+from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE
+from errors import Error, AppConfigValidationError, RankConfigValidationError
 from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
+from validation.app_config_validation import check_app_config
+from validation.rank_config_validation import check_rank_config
 
 
 def main():
-    application_config = ApplicationConfig('Конфигуратор приложения.xlsx')
-    rank_formula_config = RankFormulaConfig('Конфигуратор формулы ранга.xlsx')
+    application_config = ApplicationConfig(APP_CONFIG_FILE)
+    rank_formula_config = RankFormulaConfig(RANK_CONFIG_FILE)
     protocols_df = load_protocols(application_config, rank_formula_config)
     current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df)
     save_current_rank(application_config, current_rank_df)
@@ -124,6 +129,16 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
 if __name__ == '__main__':
     setup_logging()
     try:
-        main()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            check_app_config()
+            check_rank_config()
+            main()
+    except AppConfigValidationError as e:
+        logging.error(f'Application config validation failed. {e}')
+    except RankConfigValidationError as e:
+        logging.error(f'Rank config validation failed. {e}')
+    except Error as e:
+        logging.error(e)
     except Exception as e:
         logging.exception(e)
