@@ -108,8 +108,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             return 'Чемпионат и первенство г.Петрозаводска'
         if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
             return 'Чемпионат и первенство Республики Карелия'
+        if len(re.findall('.*онежск.*весн.*', s)) > 0:
+            return 'Онежская весна'
         if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
             return 'Всероссийские соревнования'
+        if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0:
+            return 'Клубный кубок Карелии'
 
     protocols_df['Уровень старта'] = protocols_df['Уровень старта'].apply(race_level_mapping)
     protocols_df = protocols_df.merge(rank_formula_config.race_level_df,
