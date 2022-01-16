@@ -4,7 +4,8 @@ from typing import Generator
 import pandas as pd
 from openpyxl import load_workbook, Workbook
 
-from constants import APP_CONFIG_FILE, APP_CONFIG_MAIN_SETTINGS_SHEET, APP_CONFIG_URLS_TO_PROTOCOLS_SHEET
+from constants import APP_CONFIG_FILE, APP_CONFIG_MAIN_SETTINGS_SHEET, APP_CONFIG_URLS_TO_PROTOCOLS_SHEET, \
+    CONFIG_VERSION_SHEET, APP_CONFIG_VERSION
 from errors import Error, AppConfigValidationError
 
 
@@ -20,12 +21,21 @@ def check_app_config_exists():
 
 
 def check_workbook(wb: Workbook):
+    if CONFIG_VERSION_SHEET not in wb.sheetnames:
+        raise AppConfigValidationError('Sheet with version was not found.')
+    else:
+        version, = next(wb[CONFIG_VERSION_SHEET].values)
+        if version != APP_CONFIG_VERSION:
+            raise AppConfigValidationError(
+                f'This version is not supported by the tool. Supported version is {APP_CONFIG_VERSION} but you are '
+                f'using {version}.')
+
     if APP_CONFIG_MAIN_SETTINGS_SHEET not in wb.sheetnames:
         raise AppConfigValidationError(
             f'Sheet "{APP_CONFIG_MAIN_SETTINGS_SHEET}" was not found.')
     main_settings = dict(wb[APP_CONFIG_MAIN_SETTINGS_SHEET].values)
 
-    if 'Тип источника протоколов ' not in main_settings:
+    if 'Тип источника протоколов' not in main_settings:
         raise AppConfigValidationError('Field "Тип источника протоколов" was not found.')
     protocol_source_type = main_settings['Тип источника протоколов']
     if protocol_source_type not in ('Файл', 'Ссылка'):
