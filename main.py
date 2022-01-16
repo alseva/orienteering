@@ -7,7 +7,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 from app_config import ApplicationConfig
-from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE
+from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE, VERSION
 from errors import Error
 from logger import setup_logging
 from rank_formula_config import RankFormulaConfig
@@ -128,6 +128,7 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
 
 if __name__ == '__main__':
     setup_logging()
+    logging.info(f'Rank calculator version {VERSION}\nAlex & Oleg, Inc. No rights are reserved.\n')
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
