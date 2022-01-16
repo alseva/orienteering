@@ -3,8 +3,12 @@ class Error(Exception):
 
 
 class AppConfigValidationError(Error):
-    pass
+    def __str__(self):
+        msg = super().__str__()
+        return f'Application config validation failed. {msg}'
 
 
 class RankConfigValidationError(Error):
-    pass
+    def __str__(self):
+        msg = super().__str__()
+        return f'Rank config validation failed. {msg}'
