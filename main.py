@@ -48,6 +48,8 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                     suffixes=(None, '_config'))
                 dfs[tbl]['Соревнование'] = competition
                 dfs[tbl]['Дата соревнования'] = competition_date
+                dfs[tbl]['Уровень старта'] = header1
+                dfs[tbl]['Файл протокола'] = name
                 dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия'].str.upper()
                 dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.upper()
 
@@ -85,11 +87,33 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
                            protocols_df: pd.DataFrame) -> pd.DataFrame:
     def remove_duplicates_and_convert_to_str(s):
-        return ''.join(set(s))
+        s = ''.join(set(s))
+        return s if len(s) > 0 else 'раздельный старт'
 
-    protocols_df['Коэффициент вида старта'] = protocols_df['Соревнование'].str.findall('общий старт').apply(
+    protocols_df['Вид старта'] = protocols_df['Соревнование'].str.findall('общий старт').apply(
         remove_duplicates_and_convert_to_str)
+    protocols_df = protocols_df.merge(rank_formula_config.race_type_df,
+                                      how='left',
+                                      on='Вид старта',
+                                      suffixes=(None, '_map'))
+
+    def race_level_mapping(s):
+        s = s.lower()
+        if len(re.findall('.*((чемпионат)|(первенство))+.*петрозаводск.*', s)) > 0:
+            return 'Чемпионат и первенство г.Петрозаводска'
+        if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
+            return 'Чемпионат и первенство Республики Карелия'
+        if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
+            return 'Всероссийские соревнования'
+
+    protocols_df['Уровень старта'] = protocols_df['Уровень старта'].apply(race_level_mapping)
+    protocols_df = protocols_df.merge(rank_formula_config.race_level_df,
+                                      how='left',
+                                      on='Уровень старта',
+                                      suffixes=(None, '_map'))
+    # protocols_df_grouped = protocols_df.groupby(by=['Файл протокола', 'Группа'])
     protocols_df.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
+
     return pd.DataFrame()
 
 
