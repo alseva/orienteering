@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import warnings
+from datetime import datetime
 
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -42,7 +43,7 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
             for tbl in range(len(dfs)):
                 header1 = str(soup.find_all(heading1)[0].text.strip())
                 competition = re.split('\. ', header1)[-2].strip()
-                competition_date = re.findall('[0-9]{2}\.[0-9]{2}\.[0-9]{4}', header1)[0]
+                competition_date = datetime.strptime(re.findall('[0-9]{2}\.[0-9]{2}\.[0-9]{4}', header1)[0], '%d.%m.%Y').date()
 
                 # Transform protocol columns ---------------------------------------------------------------------------
                 dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip())
@@ -65,6 +66,36 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                 dfs[tbl].loc[((dfs[tbl]['Г.р.'] == 0) | (dfs[tbl]['Г.р.'].isnull())), 'Г.р.'] = dfs[tbl].loc[
                     ((dfs[tbl]['Г.р.'] == 0) | (dfs[tbl]['Г.р.'].isnull())), 'Г.р._map']
                 dfs[tbl].drop(labels='Г.р._map', axis=1, inplace=True)
+
+                def remove_duplicates_and_convert_to_str(s):
+                    s = ''.join(set(s))
+                    return s if len(s) > 0 else 'раздельный старт'
+
+                dfs[tbl]['Вид старта'] = dfs[tbl]['Соревнование'].str.findall('общий старт').apply(
+                    remove_duplicates_and_convert_to_str)
+                dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_type_df,
+                                          how='left',
+                                          on='Вид старта',
+                                          suffixes=(None, '_map'))
+
+                def race_level_mapping(s):
+                    s = s.lower()
+                    if len(re.findall('.*((чемпионат)|(первенство))+.*петрозаводск.*', s)) > 0:
+                        return 'Чемпионат и первенство г.Петрозаводска'
+                    if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
+                        return 'Чемпионат и первенство Республики Карелия'
+                    if len(re.findall('.*онежск.*весн.*', s)) > 0:
+                        return 'Онежская весна'
+                    if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
+                        return 'Всероссийские соревнования'
+                    if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0:
+                        return 'Клубный кубок Карелии'
+
+                dfs[tbl]['Уровень старта'] = dfs[tbl]['Уровень старта'].apply(race_level_mapping)
+                dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_level_df,
+                                          how='left',
+                                          on='Уровень старта',
+                                          suffixes=(None, '_map'))
                 # Transform protocol columns ---------------------------------------------------------------------------
 
                 df_not_started = df_not_started.append(dfs[tbl][dfs[tbl]['Результат'] == 'н/с'])
@@ -91,36 +122,36 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
                            protocols_df: pd.DataFrame) -> pd.DataFrame:
-    def remove_duplicates_and_convert_to_str(s):
-        s = ''.join(set(s))
-        return s if len(s) > 0 else 'раздельный старт'
+    def top_number_results(df):
+        df_len = len(df)
+        if df_len >= 7:
+            top_result = 4
+            top_relative_rank_results = 6
+        if df_len == 6:
+            top_result = 3
+            top_relative_rank_results = 5
+        if df_len == 5:
+            top_result = 3
+            top_relative_rank_results = df_len
+        if df_len < 5:
+            top_result = 2
+            top_relative_rank_results = df_len
 
-    protocols_df['Вид старта'] = protocols_df['Соревнование'].str.findall('общий старт').apply(
-        remove_duplicates_and_convert_to_str)
-    protocols_df = protocols_df.merge(rank_formula_config.race_type_df,
-                                      how='left',
-                                      on='Вид старта',
-                                      suffixes=(None, '_map'))
+        def sort_head_mean(df):
+            return df.sort_values(axis=0, ascending=True).head(top_result).mean()
 
-    def race_level_mapping(s):
-        s = s.lower()
-        if len(re.findall('.*((чемпионат)|(первенство))+.*петрозаводск.*', s)) > 0:
-            return 'Чемпионат и первенство г.Петрозаводска'
-        if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
-            return 'Чемпионат и первенство Республики Карелия'
-        if len(re.findall('.*онежск.*весн.*', s)) > 0:
-            return 'Онежская весна'
-        if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
-            return 'Всероссийские соревнования'
-        if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0:
-            return 'Клубный кубок Карелии'
+        df['tсравнит '] = sort_head_mean(df['result_in_seconds'])
+        df['Сравнит. ранг соревнований'] = 1  # TODO!!!!! добавить исходя из расчета предыдущего соревнования
+        df['N'] = df_len
+        return df
 
-    protocols_df['Уровень старта'] = protocols_df['Уровень старта'].apply(race_level_mapping)
-    protocols_df = protocols_df.merge(rank_formula_config.race_level_df,
-                                      how='left',
-                                      on='Уровень старта',
-                                      suffixes=(None, '_map'))
-    # protocols_df_grouped = protocols_df.groupby(by=['Файл протокола', 'Группа'])
+    protocols_df = protocols_df.groupby(by=['Файл протокола', 'Возрастная группа']).apply(
+        top_number_results)
+
+    protocols_df['Ранг'] = (protocols_df['tсравнит '] / protocols_df['result_in_seconds']) * protocols_df[
+        'Сравнит. ранг соревнований'] * (1 - protocols_df['Коэффициент вида старта'] * (protocols_df['Место'] - 1) / (
+            protocols_df['N'] - 1))
+    protocols_df.sort_values(by=['Дата соревнования', 'Возрастная группа', 'Место'], inplace=True)
     protocols_df.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
 
     return pd.DataFrame()
