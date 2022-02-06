@@ -1,6 +1,7 @@
 VERSION = 1
 APP_CONFIG_VERSION = 1
 RANK_CONFIG_VERSION = 1
+CONFIG_VERSION_SHEET = '_Версия'
 
 APP_CONFIG_FILE = 'Конфигуратор приложения.xlsx'
 APP_CONFIG_MAIN_SETTINGS_SHEET = 'Настройки приложения'
