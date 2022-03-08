@@ -66,7 +66,7 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
                 dfs[tbl] = dfs[tbl].merge(application_config.mapping_yob_df,
                                           how='left',
-                                          on=['Фамилия', 'Имя', 'Возрастная группа'],
+                                          on=['Фамилия', 'Имя'],
                                           suffixes=(None, '_map'))
                 dfs[tbl].loc[((dfs[tbl]['Г.р.'] == 0) | (dfs[tbl]['Г.р.'].isnull())), 'Г.р.'] = dfs[tbl].loc[
                     ((dfs[tbl]['Г.р.'] == 0) | (dfs[tbl]['Г.р.'].isnull())), 'Г.р._map']
