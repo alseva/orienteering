@@ -27,6 +27,9 @@ class ApplicationConfig:
         self.mapping_name_df: pd.DataFrame = None
         self._load_mapping_name_df()
 
+        self.mapping_group_df: pd.DataFrame = None
+        self._load_mapping_group_df()
+
     def _load_main_settings(self):
         main_settings = dict(self._workbook[APP_CONFIG_MAIN_SETTINGS_SHEET].values)
 
@@ -46,8 +49,12 @@ class ApplicationConfig:
         self.mapping_yob_df = pd.DataFrame(mapping_yob[1:], columns=mapping_yob[0])
 
     def _load_mapping_name_df(self):
-        mapping_yob = list(self._workbook['Маппинг. ФИО'].values)
-        self.mapping_name_df = pd.DataFrame(mapping_yob[1:], columns=mapping_yob[0])
+        mapping_name = list(self._workbook['Маппинг. ФИО'].values)
+        self.mapping_name_df = pd.DataFrame(mapping_name[1:], columns=mapping_name[0])
+
+    def _load_mapping_group_df(self):
+        mapping_group = list(self._workbook['Маппинг. Возрастная группа'].values)
+        self.mapping_group_df = pd.DataFrame(mapping_group[1:], columns=mapping_group[0])
 
 if __name__ == '__main__':
     ApplicationConfig(APP_CONFIG_FILE)

@@ -56,7 +56,16 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
                 # Transform protocol columns ---------------------------------------------------------------------------
                 dfs[tbl] = dfs[tbl].astype({'Фамилия': 'string', 'Имя': 'string'})
-                dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip())
+                dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()
+
+                dfs[tbl] = dfs[tbl].merge(application_config.mapping_group_df,
+                                          how='left',
+                                          on='Возрастная группа',
+                                          suffixes=(None, '_config'))
+                dfs[tbl]['Возрастная группа верная'].fillna(dfs[tbl]['Возрастная группа'], inplace=True)
+                dfs[tbl].drop(labels='Возрастная группа', axis=1, inplace=True)
+                dfs[tbl].rename(columns={'Возрастная группа верная': 'Возрастная группа'}, inplace=True)
+
                 dfs[tbl]['Соревнование'] = competition
                 dfs[tbl]['Дата соревнования'] = competition_date
                 dfs[tbl]['Уровень старта'] = header1
@@ -68,8 +77,8 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                                           how='left',
                                           on=['Фамилия', 'Имя'],
                                           suffixes=(None, '_map'))
-                dfs[tbl].loc[((dfs[tbl]['Г.р.'] == 0) | (dfs[tbl]['Г.р.'].isnull())), 'Г.р.'] = dfs[tbl].loc[
-                    ((dfs[tbl]['Г.р.'] == 0) | (dfs[tbl]['Г.р.'].isnull())), 'Г.р._map']
+                dfs[tbl]['Г.р.'].replace(0, np.nan, inplace=True)
+                dfs[tbl]['Г.р.'] = dfs[tbl]['Г.р.'].fillna(dfs[tbl]['Г.р._map'])
                 dfs[tbl].drop(labels='Г.р._map', axis=1, inplace=True)
 
                 def remove_duplicates_and_convert_to_str(s):
@@ -115,6 +124,12 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                     dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()))]
                 # filter records without result
 
+                # filter open and other not relevant groups
+                dfs[tbl] = dfs[tbl][
+                    dfs[tbl]['Возрастная группа'].isin(
+                        rank_formula_config.group_rank_df['Возрастная группа'].to_list())]
+                # filter open and other not relevant groups
+
                 dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
                 dfs[tbl]['result_in_seconds'] = (
                         dfs[tbl]['Результат'].dt.hour * 60 * 60 +
@@ -133,9 +148,9 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
                            protocols_df: pd.DataFrame) -> pd.DataFrame:
-    protocols_rank_df = pd.DataFrame()
+    protocols_rank_df = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
     current_rank_df = pd.DataFrame()
-    protocols_rank_df_final = pd.DataFrame()
+    protocols_rank_df_final = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.']
     for competition in protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].unique():
         print(competition)
@@ -181,6 +196,10 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         protocol_df['Ранг'] = protocol_df.groupby(by=['Файл протокола'] + participant_fields, as_index=False)[
             'Ранг по группе'].transform(lambda x: x.max())
         protocols_rank_df = protocols_rank_df.append(protocol_df)
+        protocols_rank_df['Кол-во прошедших соревнований'] = np.where(
+            protocols_rank_df['Файл протокола'] == competition,
+            protocols_rank_df['Файл протокола'].nunique(), protocols_rank_df['Кол-во прошедших соревнований'])
+
         current_rank_df = protocols_rank_df[participant_fields + ['Ранг']].drop_duplicates()
         current_rank_df.rename(columns={'Ранг': 'Текущий ранг'}, inplace=True)
         current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).agg(
@@ -193,6 +212,9 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                                         suffixes=(None, '_config'))
 
         protocols_rank_df_final = protocols_rank_df_final.append(protocol_df)
+        protocols_rank_df_final['Кол-во прошедших соревнований'] = np.where(
+            protocols_rank_df_final['Файл протокола'] == competition,
+            protocols_rank_df_final['Файл протокола'].nunique(), protocols_rank_df_final['Кол-во прошедших соревнований'])
         protocols_rank_df_final.sort_values(by=['Дата соревнования', 'Возрастная группа', 'Место'], inplace=True)
     protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
     current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг.xlsx')
