@@ -43,7 +43,8 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
             # one iteration - one group --------------------------------------------------------------------------------
             for tbl in range(len(dfs)):
                 header1 = str(soup.find_all(heading1)[0].text.strip())
-                competition = re.split('\. ', header1)[-2].strip()
+                competition = ''.join(re.split('\\n', header1)[0]).replace('Протокол результатов', '').strip()
+                # str.replace(header1, 'Протокол результатов.', '').strip()
 
                 date_string = re.findall('[0-9]{2}\.[0-9]{2}\.[0-9]{4}', header1)
                 if len(date_string) > 0:
@@ -155,9 +156,9 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
             dfs_union = dfs_union.append(pd.concat(dfs))
             dfs_union.reset_index(inplace=True, drop=True)
-            dfs_union.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
-            df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx')
-            df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx')
+            dfs_union.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
+            df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx', index=False)
+            df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx', index=False)
 
     return dfs_union
 
@@ -233,7 +234,13 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             protocols_rank_df_final['Файл протокола'].nunique(),
             protocols_rank_df_final['Кол-во прошедших соревнований'])
         protocols_rank_df_final.sort_values(by=['Дата соревнования', 'Возрастная группа', 'Место'], inplace=True)
-    protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
+    protocols_rank_df_final = protocols_rank_df_final[
+        ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
+         'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя',
+         'Г.р.', 'Разр.', 'Команда', 'Результат', 'Место', 'Отставание', 'Ранг группы', 'result_in_seconds',
+         'tсравнит ', 'Сравнит. ранг соревнований', 'N', 'Ранг по группе', 'Ранг', 'Текущий ранг',
+         'Кол-во прошедших соревнований']]
+    protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
     current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг.xlsx')
     return pd.DataFrame()
 
