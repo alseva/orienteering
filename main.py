@@ -81,6 +81,22 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                 dfs[tbl]['Г.р.'] = dfs[tbl]['Г.р.'].fillna(dfs[tbl]['Г.р._map'])
                 dfs[tbl].drop(labels='Г.р._map', axis=1, inplace=True)
 
+                dfs[tbl] = dfs[tbl].merge(application_config.mapping_correct_participant_data,
+                                          how='left',
+                                          on=['Фамилия', 'Имя', 'Г.р.'],
+                                          suffixes=(None, '_map'))
+                dfs[tbl]['Фамилия верная'].fillna(dfs[tbl]['Фамилия'], inplace=True)
+                dfs[tbl].drop(labels='Фамилия', axis=1, inplace=True)
+                dfs[tbl].rename(columns={'Фамилия верная': 'Фамилия'}, inplace=True)
+
+                dfs[tbl]['Имя верное'].fillna(dfs[tbl]['Имя'], inplace=True)
+                dfs[tbl].drop(labels='Имя', axis=1, inplace=True)
+                dfs[tbl].rename(columns={'Имя верное': 'Имя'}, inplace=True)
+
+                dfs[tbl]['Г.р. верный'].fillna(dfs[tbl]['Г.р.'], inplace=True)
+                dfs[tbl].drop(labels='Г.р.', axis=1, inplace=True)
+                dfs[tbl].rename(columns={'Г.р. верный': 'Г.р.'}, inplace=True)
+
                 def remove_duplicates_and_convert_to_str(s):
                     s = ''.join(set(s))
                     return s if len(s) > 0 else 'раздельный старт'
@@ -214,7 +230,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         protocols_rank_df_final = protocols_rank_df_final.append(protocol_df)
         protocols_rank_df_final['Кол-во прошедших соревнований'] = np.where(
             protocols_rank_df_final['Файл протокола'] == competition,
-            protocols_rank_df_final['Файл протокола'].nunique(), protocols_rank_df_final['Кол-во прошедших соревнований'])
+            protocols_rank_df_final['Файл протокола'].nunique(),
+            protocols_rank_df_final['Кол-во прошедших соревнований'])
         protocols_rank_df_final.sort_values(by=['Дата соревнования', 'Возрастная группа', 'Место'], inplace=True)
     protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx')
     current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг.xlsx')
