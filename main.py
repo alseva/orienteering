@@ -173,9 +173,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         print(competition)
         protocol_df = protocols_df[protocols_df['Файл протокола'] == competition].copy()
 
-        def calculate_competition_rank(df):
+        def calculate_competition_rank(df): # for each group separately
             participants_number = len(df)
-            if participants_number >= 7:
+            if participants_number > 8:
+                top_result = 5
+                top_relative_rank_results = 7
+            elif participants_number in (7, 8):
                 top_result = 4
                 top_relative_rank_results = 6
             elif participants_number == 6:
