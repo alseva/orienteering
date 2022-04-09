@@ -203,15 +203,16 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                               suffixes=(None, '_config'))
             if df_top['Текущий ранг'].count() > 0:
                 df_top.dropna(subset=['Текущий ранг'], inplace=True)
-                df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
-                df_top['Участники сравнит. ранга соревнований'] = df_top['Фамилия'] + ' ' + df_top['Имя'] + ': ' + \
-                                                                  df_top['Текущий ранг'].astype(str)
-                df['Сравнит. ранг соревнований'] = get_mean_by_top(df_top['Текущий ранг'], top_relative_rank_results,
-                                                                   asc=False)
+                df_top = df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
+                df_top['Участники сравнит. ранга соревнований'] = (df_top['Фамилия'] + ' ' + df_top['Имя'] + ': ' +
+                                                                   df_top['Текущий ранг'].astype(str))
+
+                df['Сравнит. ранг соревнований'] = df_top['Текущий ранг'].mean()
                 df['Участники сравнит. ранга соревнований'] = df_top['Участники сравнит. ранга соревнований'].str.cat(
                     sep=', ')
             else:
                 df['Сравнит. ранг соревнований'] = df['Ранг группы']
+
             df['N'] = participants_number if participants_number > 1 else 2
             df['Ранг по группе'] = df['Коэффициент уровня старта'] * (df['tсравнит '] / df['result_in_seconds']) * df[
                 'Сравнит. ранг соревнований'] * (1 - df['Коэффициент вида старта'] * (df['Место'] - 1) / (df['N'] - 1))
