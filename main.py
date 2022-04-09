@@ -202,9 +202,14 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                               on=participant_fields,
                               suffixes=(None, '_config'))
             if df_top['Текущий ранг'].count() > 0:
+                df_top.dropna(subset=['Текущий ранг'], inplace=True)
                 df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
+                df_top['Участники сравнит. ранга соревнований'] = df_top['Фамилия'] + ' ' + df_top['Имя'] + ': ' + \
+                                                                  df_top['Текущий ранг'].astype(str)
                 df['Сравнит. ранг соревнований'] = get_mean_by_top(df_top['Текущий ранг'], top_relative_rank_results,
                                                                    asc=False)
+                df['Участники сравнит. ранга соревнований'] = df_top['Участники сравнит. ранга соревнований'].str.cat(
+                    sep=', ')
             else:
                 df['Сравнит. ранг соревнований'] = df['Ранг группы']
             df['N'] = participants_number if participants_number > 1 else 2
@@ -243,7 +248,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
          'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя',
          'Г.р.', 'Разр.', 'Команда', 'Результат', 'Место', 'Отставание', 'Ранг группы', 'result_in_seconds',
-         'tсравнит ', 'Сравнит. ранг соревнований', 'N', 'Ранг по группе', 'Ранг', 'Текущий ранг',
+         'tсравнит ', 'Сравнит. ранг соревнований', 'Участники сравнит. ранга соревнований', 'N', 'Ранг по группе',
+         'Ранг', 'Текущий ранг',
          'Кол-во прошедших соревнований']]
     protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
     current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг.xlsx')
