@@ -127,6 +127,7 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                                           how='left',
                                           on='Уровень старта',
                                           suffixes=(None, '_map'))
+                dfs[tbl]['Коэффициент уровня старта'] = 1 + dfs[tbl]['Коэффициент уровня старта'].fillna(0)
                 dfs[tbl] = dfs[tbl].merge(rank_formula_config.group_rank_df,
                                           how='left',
                                           on='Возрастная группа',
@@ -166,14 +167,14 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
                            protocols_df: pd.DataFrame) -> pd.DataFrame:
     protocols_rank_df = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
-    current_rank_df = pd.DataFrame()
+    current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Текущий ранг': []})
     protocols_rank_df_final = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.']
     for competition in protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].unique():
         print(competition)
         protocol_df = protocols_df[protocols_df['Файл протокола'] == competition].copy()
 
-        def calculate_competition_rank(df): # for each group separately
+        def calculate_competition_rank(df):  # for each group separately
             participants_number = len(df)
             if participants_number > 8:
                 top_result = 5
@@ -195,19 +196,20 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                 return df.sort_values(axis=0, ascending=asc).head(top).mean()
 
             df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
-            if len(current_rank_df) > 0:
-                df_top = df.sort_values(by='result_in_seconds', axis=0, ascending=True).head(
-                    top_relative_rank_results).merge(current_rank_df,
-                                                     how='left',
-                                                     on=participant_fields,
-                                                     suffixes=(None, '_config'))
+
+            df_top = df.merge(current_rank_df,
+                              how='left',
+                              on=participant_fields,
+                              suffixes=(None, '_config'))
+            if df_top['Текущий ранг'].count() > 0:
+                df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
                 df['Сравнит. ранг соревнований'] = get_mean_by_top(df_top['Текущий ранг'], top_relative_rank_results,
                                                                    asc=False)
             else:
                 df['Сравнит. ранг соревнований'] = df['Ранг группы']
             df['N'] = participants_number if participants_number > 1 else 2
-            df['Ранг по группе'] = (df['tсравнит '] / df['result_in_seconds']) * df['Сравнит. ранг соревнований'] * (
-                    1 - df['Коэффициент вида старта'] * (df['Место'] - 1) / (df['N'] - 1))
+            df['Ранг по группе'] = df['Коэффициент уровня старта'] * (df['tсравнит '] / df['result_in_seconds']) * df[
+                'Сравнит. ранг соревнований'] * (1 - df['Коэффициент вида старта'] * (df['Место'] - 1) / (df['N'] - 1))
             return df
 
         protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False).apply(
