@@ -7,6 +7,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
+from pandas import DataFrame
 
 from app_config import ApplicationConfig
 from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE, VERSION
@@ -20,12 +21,13 @@ from validation.rank_config_validation import check_rank_config
 def main():
     application_config = ApplicationConfig(APP_CONFIG_FILE)
     rank_formula_config = RankFormulaConfig(RANK_CONFIG_FILE)
-    protocols_df = load_protocols(application_config, rank_formula_config)
-    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df)
+    protocols_df, left_races_df = load_protocols(application_config, rank_formula_config)
+    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df)
     save_current_rank(application_config, current_rank_df)
 
 
-def load_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> pd.DataFrame:
+def load_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> tuple[
+    DataFrame, DataFrame]:
     dfs_union = pd.DataFrame()
     df_not_started = pd.DataFrame()
     df_left_race = pd.DataFrame()
@@ -33,6 +35,7 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
     # one iteration - one protocol -------------------------------------------------------------------------------------
     for name in os.listdir(application_config.protocols_dir):
         if os.path.isfile(os.path.join(application_config.protocols_dir, name)):
+            print(name)
             dfs = pd.read_html(application_config.protocols_dir / name)
 
             soup = BeautifulSoup(open(application_config.protocols_dir / name, 'r'), 'lxml')
@@ -134,19 +137,19 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                                           suffixes=(None, '_config'))
                 # Transform protocol columns ---------------------------------------------------------------------------
 
+                # filter open and other not relevant groups
+                dfs[tbl] = dfs[tbl][
+                    dfs[tbl]['Возрастная группа'].isin(
+                        rank_formula_config.group_rank_df['Возрастная группа'].to_list())]
+                # filter open and other not relevant groups
+
                 df_not_started = df_not_started.append(dfs[tbl][dfs[tbl]['Результат'] == 'н/с'])
                 df_left_race = df_left_race.append(dfs[tbl][dfs[tbl]['Результат'] == 'cнят'])
 
                 # filter records without result or without last/first name
                 dfs[tbl] = dfs[tbl][~((dfs[tbl]['Результат'] == 'cнят') | (dfs[tbl]['Результат'] == 'н/с') | (
                     dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()))]
-                # filter records without result
-
-                # filter open and other not relevant groups
-                dfs[tbl] = dfs[tbl][
-                    dfs[tbl]['Возрастная группа'].isin(
-                        rank_formula_config.group_rank_df['Возрастная группа'].to_list())]
-                # filter open and other not relevant groups
+                # filter records without result or without last/first name
 
                 dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
                 dfs[tbl]['result_in_seconds'] = (
@@ -161,11 +164,11 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
             df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx', index=False)
             df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx', index=False)
 
-    return dfs_union
+    return dfs_union, df_left_race
 
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
-                           protocols_df: pd.DataFrame) -> pd.DataFrame:
+                           protocols_df: pd.DataFrame, left_races_df: pd.DataFrame) -> pd.DataFrame:
     protocols_rank_df = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
     current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Текущий ранг': []})
     protocols_rank_df_final = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
@@ -173,29 +176,42 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
     for competition in protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].unique():
         print(competition)
         protocol_df = protocols_df[protocols_df['Файл протокола'] == competition].copy()
+        left_race_df = left_races_df[left_races_df['Файл протокола'] == competition].copy()
+        left_race_df['left_race'] = 'yes'
+        left_race_df['Г.р.'] = left_race_df['Г.р.'].fillna(0)
+        left_race_df = left_race_df[
+            ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
+             'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя', 'Г.р.',
+             'Разр.', 'Команда', 'Ранг группы', 'left_race']]
+        protocol_df = pd.concat([protocol_df, left_race_df])
 
         def calculate_competition_rank(df):  # for each group separately
-            participants_number = len(df)
+            participants_number = len(df[df['left_race'].isna()])  # exclude left race participants
+            participants_number_for_relative_rank = len(df)  # include left race participants
+
             if participants_number > 8:
                 top_result = 5
-                top_relative_rank_results = 7
             elif participants_number in (7, 8):
                 top_result = 4
-                top_relative_rank_results = 6
-            elif participants_number == 6:
+            elif participants_number in (5, 6):
                 top_result = 3
-                top_relative_rank_results = 5
-            elif participants_number == 5:
-                top_result = 3
-                top_relative_rank_results = participants_number
             else:
                 top_result = 2
-                top_relative_rank_results = participants_number
+
+            if participants_number_for_relative_rank > 8:
+                top_relative_rank_results = 7
+            elif participants_number in (7, 8):
+                top_relative_rank_results = 6
+            elif participants_number == 6:
+                top_relative_rank_results = 5
+            else:
+                top_relative_rank_results = participants_number_for_relative_rank
+
 
             def get_mean_by_top(df, top, asc):
                 return df.sort_values(axis=0, ascending=asc).head(top).mean()
 
-            df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
+            df['tсравнит '] = get_mean_by_top( df['result_in_seconds'], top_result, asc=True)
 
             df_top = df.merge(current_rank_df,
                               how='left',
@@ -216,6 +232,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             df['N'] = participants_number if participants_number > 1 else 2
             df['Ранг по группе'] = df['Коэффициент уровня старта'] * (df['tсравнит '] / df['result_in_seconds']) * df[
                 'Сравнит. ранг соревнований'] * (1 - df['Коэффициент вида старта'] * (df['Место'] - 1) / (df['N'] - 1))
+
             return df
 
         protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False).apply(
