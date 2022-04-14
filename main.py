@@ -169,9 +169,11 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
                            protocols_df: pd.DataFrame, left_races_df: pd.DataFrame) -> pd.DataFrame:
-    protocols_rank_df = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
+    protocols_rank_df = pd.DataFrame.from_dict(
+        {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Текущий ранг': []})
-    protocols_rank_df_final = pd.DataFrame.from_dict({'Кол-во прошедших соревнований': []})
+    protocols_rank_df_final = pd.DataFrame.from_dict(
+        {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.']
     for competition in protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].unique():
         print(competition)
@@ -207,11 +209,10 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             else:
                 top_relative_rank_results = participants_number_for_relative_rank
 
-
             def get_mean_by_top(df, top, asc):
                 return df.sort_values(axis=0, ascending=asc).head(top).mean()
 
-            df['tсравнит '] = get_mean_by_top( df['result_in_seconds'], top_result, asc=True)
+            df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
 
             df_top = df.merge(current_rank_df,
                               how='left',
@@ -241,34 +242,85 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         protocol_df['Ранг'] = protocol_df.groupby(by=['Файл протокола'] + participant_fields, as_index=False)[
             'Ранг по группе'].transform(lambda x: x.max())
         protocols_rank_df = protocols_rank_df.append(protocol_df)
-        protocols_rank_df['Кол-во прошедших соревнований'] = np.where(
-            protocols_rank_df['Файл протокола'] == competition,
-            protocols_rank_df['Файл протокола'].nunique(), protocols_rank_df['Кол-во прошедших соревнований'])
 
-        current_rank_df = protocols_rank_df[participant_fields + ['Ранг']].drop_duplicates()
-        current_rank_df.rename(columns={'Ранг': 'Текущий ранг'}, inplace=True)
-        current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).agg(
-            {'Текущий ранг': np.mean})
-        current_rank_df.sort_values(by='Текущий ранг', ascending=False, inplace=True)
-        current_rank_df.reset_index(drop=True, inplace=True)
+        current_rank_df = protocols_rank_df[participant_fields + ['Файл протокола', 'Ранг']].drop_duplicates()
+
+        current_rank_df['Кол-во cоревнований для текущего ранга'] = round(
+            current_rank_df['Файл протокола'].nunique() * rank_formula_config.race_percentage_for_final_rank)
+
+        races_per_participant_df = current_rank_df.groupby(by=participant_fields, as_index=False).agg(
+            {'Файл протокола': 'nunique'})
+        races_per_participant_df.rename(columns={'Файл протокола': 'Кол-во соревнований у участника'}, inplace=True)
+        current_rank_df = current_rank_df.merge(races_per_participant_df, how='left', on=participant_fields)
+
+        current_rank_df['Доля отсутствующих стартов'] = (1 -
+                                                         current_rank_df['Кол-во соревнований у участника'] /
+                                                         current_rank_df['Кол-во cоревнований для текущего ранга'])
+        current_rank_df['Количество отсутствующих стартов'] = round((1 -
+                                                                     current_rank_df[
+                                                                         'Кол-во соревнований у участника'] /
+                                                                     current_rank_df[
+                                                                         'Кол-во cоревнований для текущего ранга']) * 100,
+                                                                    2)
+
+        def define_lack_races(x):
+            if x >= 80.0:
+                return '80% и более'
+            elif x >= 60.0:
+                return '60% - 79%'
+            elif x >= 40.0:
+                return '40% - 59%'
+            elif x >= 20.0:
+                return '20% - 39%'
+            else:
+                return '-'
+
+        current_rank_df['Количество отсутствующих стартов'] = current_rank_df[
+            'Количество отсутствующих стартов'].apply(define_lack_races)
+
+        current_rank_df = current_rank_df.merge(rank_formula_config.penalty_lack_races_df,
+                                                how='left',
+                                                on='Количество отсутствующих стартов')
+        current_rank_df['Штраф за отсутствующие старты'] = current_rank_df['Штраф за отсутствующие старты'].fillna(0)
+        current_rank_df['Штраф за отсутствующие старты'] = 1 - current_rank_df['Штраф за отсутствующие старты']
+
+        def define_current_rank(df):
+            races_number = df['Кол-во cоревнований для текущего ранга'].max()
+            penalty_lack_races = df['Штраф за отсутствующие старты'].max()
+            df['Текущий ранг'] = df.sort_values(by='Ранг', ascending=False).head(races_number)[
+                                     'Ранг'].mean() * penalty_lack_races
+            return df
+
+        current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(define_current_rank)
+        current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг_{}.xlsx'.format(competition))
         protocol_df = protocol_df.merge(current_rank_df,
                                         how='left',
-                                        on=participant_fields,
+                                        on=participant_fields + ['Файл протокола'],
                                         suffixes=(None, '_config'))
+        current_rank_df = current_rank_df[
+            participant_fields + ['Кол-во cоревнований для текущего ранга', 'Кол-во соревнований у участника',
+                                  'Доля отсутствующих стартов', 'Количество отсутствующих стартов',
+                                  'Штраф за отсутствующие старты',
+                                  'Текущий ранг']].drop_duplicates()
+        current_rank_df.sort_values(by='Текущий ранг', ascending=False, inplace=True)
+        current_rank_df.reset_index(drop=True, inplace=True)
 
         protocols_rank_df_final = protocols_rank_df_final.append(protocol_df)
+
         protocols_rank_df_final['Кол-во прошедших соревнований'] = np.where(
             protocols_rank_df_final['Файл протокола'] == competition,
             protocols_rank_df_final['Файл протокола'].nunique(),
             protocols_rank_df_final['Кол-во прошедших соревнований'])
+
         protocols_rank_df_final.sort_values(by=['Дата соревнования', 'Возрастная группа', 'Место'], inplace=True)
     protocols_rank_df_final = protocols_rank_df_final[
         ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
          'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя',
          'Г.р.', 'Разр.', 'Команда', 'Результат', 'Место', 'Отставание', 'Ранг группы', 'result_in_seconds',
          'tсравнит ', 'Сравнит. ранг соревнований', 'Участники сравнит. ранга соревнований', 'N', 'Ранг по группе',
-         'Ранг', 'Текущий ранг',
-         'Кол-во прошедших соревнований']]
+         'Ранг', 'Кол-во соревнований у участника', 'Доля отсутствующих стартов', 'Штраф за отсутствующие старты',
+         'Текущий ранг',
+         'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
     protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
     current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг.xlsx')
     return pd.DataFrame()
