@@ -11,6 +11,8 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from matplotlib.backends.backend_pdf import PdfPages
 from pandas import DataFrame
+import pdfkit
+
 
 from app_config import ApplicationConfig
 from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE, VERSION
@@ -360,18 +362,22 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df = current_rank_df[
         ['№', 'Участник', 'Г.р.', 'Ранг на ' + str(today), '№ Старта', 'В учет', 'У участника', 'Штраф']]
 
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.axis('tight')
-    ax.axis('off')
-    the_table = ax.table(cellText=current_rank_df.values, colLabels=current_rank_df.columns, loc='center',
-                         cellLoc='left', colWidths=[0.05, 0.3, 0.05, 0.2] + [0.1] * 4)
-    colors = plt.cm.BuPu(np.linspace(0, 0.6, len(current_rank_df)))
-    colors = colors[::-1]
-    for idx, b in enumerate(colors):
-        the_table[(idx + 1, 3)].set_facecolor(b)
-    pp = PdfPages(application_config.rank_dir / "Текущий ранг_{}.pdf".format(str(today)))
-    pp.savefig(fig, bbox_inches='tight')
-    pp.close()
+    current_rank_df = current_rank_df.style.background_gradient(subset='Ранг на ' + str(today))
+    current_rank_df.to_excel(application_config.rank_dir / "Текущий ранг_{}.xlsx".format(str(today)), index=False)
+    # https: // www.cedarville.edu / insights / computer - help / post / how - to - repeat - excel - spreadsheet - column - headings - at - top - of - page
+
+    # fig, ax = plt.subplots(figsize=(12, 4))
+    # ax.axis('tight')
+    # ax.axis('off')
+    # the_table = ax.table(cellText=current_rank_df.values, colLabels=current_rank_df.columns, loc='center',
+    #                      cellLoc='left', colWidths=[0.05, 0.3, 0.05, 0.2] + [0.1] * 4)
+    #     colors = plt.cm.BuPu(np.linspace(0, 0.6, len(current_rank_df)))
+    #     colors = colors[::-1]
+    # for idx, b in enumerate(colors):
+    #     the_table[(idx + 1, 3)].set_facecolor(b)
+    # pp = PdfPages(application_config.rank_dir / "Текущий ранг_{}.pdf".format(str(today)))
+    # pp.savefig(fig, bbox_inches='tight')
+    # pp.close()
     pass
 
 
