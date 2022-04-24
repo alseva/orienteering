@@ -245,8 +245,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         current_rank_df = protocols_rank_df[participant_fields + ['Файл протокола', 'Ранг']].drop_duplicates()
 
-        if current_rank_df['Файл протокола'].nunique() == 1:
-            current_rank_df['Кол-во cоревнований для текущего ранга'] = 1
+        if current_rank_df['Файл протокола'].nunique() <= rank_formula_config.race_number_to_start_apply_rules:
+            current_rank_df['Кол-во cоревнований для текущего ранга'] = current_rank_df['Файл протокола'].nunique()
         else:
             current_rank_df['Кол-во cоревнований для текущего ранга'] = round(
                 current_rank_df['Файл протокола'].nunique() * rank_formula_config.race_percentage_for_final_rank)
@@ -256,15 +256,20 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         races_per_participant_df.rename(columns={'Файл протокола': 'Кол-во соревнований у участника'}, inplace=True)
         current_rank_df = current_rank_df.merge(races_per_participant_df, how='left', on=participant_fields)
 
-        current_rank_df['Доля отсутствующих стартов'] = (1 -
-                                                         current_rank_df['Кол-во соревнований у участника'] /
-                                                         current_rank_df['Кол-во cоревнований для текущего ранга'])
-        current_rank_df['Количество отсутствующих стартов'] = round((1 -
-                                                                     current_rank_df[
-                                                                         'Кол-во соревнований у участника'] /
-                                                                     current_rank_df[
-                                                                         'Кол-во cоревнований для текущего ранга']) * 100,
-                                                                    2)
+        if current_rank_df['Файл протокола'].nunique() <= rank_formula_config.race_number_to_start_apply_rules:
+            current_rank_df['Доля отсутствующих стартов'] = 0
+            current_rank_df['Количество отсутствующих стартов'] = 0
+        else:
+            current_rank_df['Доля отсутствующих стартов'] = (1 -
+                                                             current_rank_df['Кол-во соревнований у участника'] /
+                                                             current_rank_df['Кол-во cоревнований для текущего ранга'])
+            current_rank_df['Доля отсутствующих стартов'] = current_rank_df['Доля отсутствующих стартов'].apply(lambda x: x if x > 0 else 0)
+            current_rank_df['Количество отсутствующих стартов'] = round((1 -
+                                                                         current_rank_df[
+                                                                             'Кол-во соревнований у участника'] /
+                                                                         current_rank_df[
+                                                                             'Кол-во cоревнований для текущего ранга']) * 100,
+                                                                        2)
 
         def define_lack_races(x):
             if x >= 80.0:

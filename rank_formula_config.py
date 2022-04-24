@@ -12,6 +12,7 @@ class RankFormulaConfig:
         self._workbook = load_workbook(self._excel_file, read_only=True, keep_vba=False)
 
         self.race_percentage_for_final_rank = None
+        self.race_number_to_start_apply_rules = None
         self._load_main_settings()
 
         self.race_type_df: pd.DataFrame = None
@@ -30,6 +31,7 @@ class RankFormulaConfig:
     def _load_main_settings(self):
         main_settings = list(self._workbook[RANK_CONFIG_MAIN_SETTINGS_SHEET].values)
         self.race_percentage_for_final_rank = main_settings[1][1]
+        self.race_number_to_start_apply_rules = main_settings[2][1]
 
     def _load_race_type_df(self):
         race_types = list(self._workbook[RANK_CONFIG_RACE_TYPE_SHEET].values)
@@ -67,4 +69,4 @@ class RankFormulaConfig:
 
 if __name__ == '__main__':
     rank_config = RankFormulaConfig(RANK_CONFIG_FILE)
-    print(rank_config.group_rank_df)
+    print(rank_config.race_number_to_start_apply_rules)
