@@ -245,8 +245,11 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         current_rank_df = protocols_rank_df[participant_fields + ['Файл протокола', 'Ранг']].drop_duplicates()
 
-        current_rank_df['Кол-во cоревнований для текущего ранга'] = round(
-            current_rank_df['Файл протокола'].nunique() * rank_formula_config.race_percentage_for_final_rank)
+        if current_rank_df['Файл протокола'].nunique() == 1:
+            current_rank_df['Кол-во cоревнований для текущего ранга'] = 1
+        else:
+            current_rank_df['Кол-во cоревнований для текущего ранга'] = round(
+                current_rank_df['Файл протокола'].nunique() * rank_formula_config.race_percentage_for_final_rank)
 
         races_per_participant_df = current_rank_df.groupby(by=participant_fields, as_index=False).agg(
             {'Файл протокола': 'nunique'})
