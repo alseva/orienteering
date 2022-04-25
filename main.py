@@ -267,7 +267,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                                                              current_rank_df['Кол-во соревнований у участника'] /
                                                              current_rank_df['Кол-во cоревнований для текущего ранга'])
             current_rank_df['Доля отсутствующих стартов'] = current_rank_df['Доля отсутствующих стартов'].apply(
-                lambda x: math.floor(x) if x > 0 else 0)
+                lambda x: math.floor(x * 100) / 100 if x > 0 else 0)
             current_rank_df['Количество отсутствующих стартов'] = (
                     (1 -
                      current_rank_df['Кол-во соревнований у участника'] /
