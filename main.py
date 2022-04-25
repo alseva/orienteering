@@ -5,13 +5,10 @@ import re
 import warnings
 from datetime import datetime
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
-from matplotlib.backends.backend_pdf import PdfPages
 from pandas import DataFrame
-import pdfkit
 
 
 from app_config import ApplicationConfig
@@ -362,8 +359,9 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df = current_rank_df[
         ['№', 'Участник', 'Г.р.', 'Ранг на ' + str(today), '№ Старта', 'В учет', 'У участника', 'Штраф']]
 
-    current_rank_df = current_rank_df.style.background_gradient(subset='Ранг на ' + str(today))
+    current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset='Ранг на ' + str(today))
     current_rank_df.to_excel(application_config.rank_dir / "Текущий ранг_{}.xlsx".format(str(today)), index=False)
+
     # https: // www.cedarville.edu / insights / computer - help / post / how - to - repeat - excel - spreadsheet - column - headings - at - top - of - page
 
     # fig, ax = plt.subplots(figsize=(12, 4))

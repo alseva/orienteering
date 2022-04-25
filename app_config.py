@@ -32,7 +32,7 @@ class ApplicationConfig:
         self._load_mapping_group_df()
 
     def _load_main_settings(self):
-        main_settings = dict(self._workbook[APP_CONFIG_MAIN_SETTINGS_SHEET].values)
+        main_settings = dict(value[:2] for value in self._workbook[APP_CONFIG_MAIN_SETTINGS_SHEET].values)
 
         self.protocol_source_type = main_settings['Тип источника протоколов']
 

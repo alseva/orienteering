@@ -33,7 +33,7 @@ def check_workbook(wb: Workbook):
     if APP_CONFIG_MAIN_SETTINGS_SHEET not in wb.sheetnames:
         raise AppConfigValidationError(
             f'Sheet "{APP_CONFIG_MAIN_SETTINGS_SHEET}" was not found.')
-    main_settings = dict(wb[APP_CONFIG_MAIN_SETTINGS_SHEET].values)
+    main_settings = dict(value[:2] for value in wb[APP_CONFIG_MAIN_SETTINGS_SHEET].values)
 
     if 'Тип источника протоколов' not in main_settings:
         raise AppConfigValidationError('Field "Тип источника протоколов" was not found.')
