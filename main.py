@@ -61,6 +61,14 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                 competition_date = date_string.date()
 
                 # Transform protocol columns ---------------------------------------------------------------------------
+                if 'Фамилия, Имя' in dfs[tbl].columns:
+                    dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[0])
+                    dfs[tbl]['Имя'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[1:])
+                    dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.join(' ')
+                    dfs[tbl].drop(labels='Фамилия, Имя', axis=1, inplace=True)
+                if 'Г.р' in dfs[tbl].columns:
+                    dfs[tbl].rename(columns={'Г.р': 'Г.р.'}, inplace=True)
+
                 dfs[tbl] = dfs[tbl].astype({'Фамилия': 'string', 'Имя': 'string'})
                 dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()
 
@@ -211,8 +219,15 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             else:
                 top_relative_rank_results = participants_number_for_relative_rank
 
-            def get_mean_by_top(df, top, asc):
-                return df.sort_values(axis=0, ascending=asc).head(top).mean()
+            def get_mean_by_top(s, top, asc):
+                s = s.sort_values(axis=0, ascending=asc)
+                winner = s.iloc[0]
+                while top > 1:
+                    mean = s.head(top).mean()
+                    if mean / winner <= 1.15:
+                        return mean
+                    top -= 1
+                return winner
 
             df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
 
