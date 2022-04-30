@@ -220,14 +220,19 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                 top_relative_rank_results = participants_number_for_relative_rank
 
             def get_mean_by_top(s, top, asc):
+                if len(s) == 1:
+                    return s.iloc[0]
+
                 s = s.sort_values(axis=0, ascending=asc)
                 winner = s.iloc[0]
+
                 while top > 1:
                     mean = s.head(top).mean()
                     if mean / winner <= 1.15:
                         return mean
                     top -= 1
-                return winner
+
+                return winner * 1.15
 
             df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
 
