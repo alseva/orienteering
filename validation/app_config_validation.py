@@ -41,19 +41,22 @@ def check_workbook(wb: Workbook):
     if protocol_source_type not in ('Файл', 'Ссылка'):
         raise AppConfigValidationError(f'Unsupported protocol source type: "{protocol_source_type}".')
 
-    if 'Путь к папке со всеми протоколами' not in main_settings:
-        raise AppConfigValidationError('Field "Путь к папке со всеми протоколами" was not found.')
-    protocols_dir = Path(main_settings['Путь к папке со всеми протоколами'])
-    if protocol_source_type == 'Файл':
-        if not protocols_dir.is_dir():
-            raise AppConfigValidationError(f'Directory with protocols does not exist: "{protocols_dir}".')
-        if not any(protocols_dir.glob('*.htm')):
-            raise AppConfigValidationError(f'Directory "{protocols_dir}" does not contain any protocols (.htm files).')
+    for rank_name in (
+    'Общего летнего ранга', 'Общего зимнего ранга', 'Лесного ранга', 'Спринт ранга', 'гонки сильнейших'):
+        protocols_dir = f'Путь к папке со всеми протоколами для {rank_name}'
+        if protocols_dir not in main_settings:
+            raise AppConfigValidationError(f'Field "{protocols_dir}" was not found.')
+        protocols_dir = Path(main_settings[protocols_dir])
+        if protocol_source_type == 'Файл':
+            if not protocols_dir.is_dir():
+                raise AppConfigValidationError(f'Directory with protocols does not exist: "{protocols_dir}".')
+            # if not any(protocols_dir.glob('*.htm')):
+            #     raise AppConfigValidationError(
+            #         f'Directory "{protocols_dir}" does not contain any protocols (.htm files).')
 
     if protocol_source_type == 'Ссылка':
         check_urls_to_protocols(wb)
 
-    # TODO: Check 'Путь к папке с протоколами для гонки сильнейших'
     # TODO: Check 'Путь к файлу с финальным рангом предыдущего года'
     # TODO: Check 'Путь к папке с результатами'
 

@@ -10,7 +10,6 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from pandas import DataFrame
 
-
 from app_config import ApplicationConfig
 from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE, VERSION
 from errors import Error
@@ -185,9 +184,16 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
     protocols_rank_df_final = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.']
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # В цикле по каждому соревнованию рассчитываем ранг
+    # дополняем общий файл рангов соревнований новым расчетным значением
+    # рассчитываем текущий ранг - как он изменился после соревнования
     for competition in protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].unique():
         print(competition)
         protocol_df = protocols_df[protocols_df['Файл протокола'] == competition].copy()
+
+        # дополняем протоколы снятыми учасниками (они нужны для расчета сравнительного ранга соревнований)
         left_race_df = left_races_df[left_races_df['Файл протокола'] == competition].copy()
         left_race_df['left_race'] = 'yes'
         left_race_df['Г.р.'] = left_race_df['Г.р.'].fillna(0)
@@ -197,9 +203,11 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
              'Разр.', 'Команда', 'Ранг группы', 'left_race']]
         protocol_df = pd.concat([protocol_df, left_race_df])
 
-        def calculate_competition_rank(df):  # for each group separately
-            participants_number = len(df[df['left_race'].isna()])  # exclude left race participants
-            participants_number_for_relative_rank = len(df)  # include left race participants
+
+        # расчет ранга соревнований отдельно для каждой возрастной группы
+        def calculate_competition_rank(df):
+            participants_number = len(df[df['left_race'].isna()])  # исключаем снятных из кол-ва учасников для расчета ранга соревнований
+            participants_number_for_relative_rank = len(df)  # учитываем снятых для расчета сравнительго ранга соревнований
 
             if participants_number > 8:
                 top_result = 5
@@ -219,6 +227,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             else:
                 top_relative_rank_results = participants_number_for_relative_rank
 
+
             def get_mean_by_top(s, top, asc):
                 if len(s) == 1:
                     return s.iloc[0]
@@ -233,13 +242,13 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                     top -= 1
 
                 return winner * 1.15
-
             df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
 
             df_top = df.merge(current_rank_df,
                               how='left',
                               on=participant_fields,
                               suffixes=(None, '_config'))
+            # есть текущий ранг и в группе больше одного участника
             if df_top['Текущий ранг'].count() > 0 and df['№ п/п'].dropna().nunique() > 1:
                 df_top.dropna(subset=['Текущий ранг'], inplace=True)
                 df_top = df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
@@ -249,22 +258,29 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                 df['Сравнит. ранг соревнований'] = df_top['Текущий ранг'].mean()
                 df['Участники сравнит. ранга соревнований'] = df_top['Участники сравнит. ранга соревнований'].str.cat(
                     sep=', ')
+
+            # текущий ранг еще отсутствует или в группе один участник
             else:
                 df['Сравнит. ранг соревнований'] = df['Ранг группы']
 
             df['N'] = participants_number if participants_number > 1 else 2
+
             df['Ранг по группе'] = df['Коэффициент уровня старта'] * (df['tсравнит '] / df['result_in_seconds']) * df[
                 'Сравнит. ранг соревнований'] * (1 - df['Коэффициент вида старта'] * (df['Место'] - 1) / (df['N'] - 1))
 
             return df
-
         protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False).apply(
             calculate_competition_rank)
 
+        # если учасник в протоколе был сразу в нескольких возрастных группах,
+        # то для него берется лучший ранг из рассчитанных
         protocol_df['Ранг'] = protocol_df.groupby(by=['Файл протокола'] + participant_fields, as_index=False)[
             'Ранг по группе'].transform(lambda x: x.max())
+
+        # дополняем таблицу протоколов соревнованием с рассчитанным рангом
         protocols_rank_df = protocols_rank_df.append(protocol_df)
 
+        # для расчета текущего ранга берем таблицу с протоколами и рангам по каждому соревнованию
         current_rank_df = protocols_rank_df[participant_fields + ['Файл протокола', 'Ранг']].drop_duplicates()
 
         if current_rank_df['Файл протокола'].nunique() <= rank_formula_config.race_number_to_start_apply_rules:
@@ -323,7 +339,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             return df
 
         current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(define_current_rank)
-        current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг_{}.xlsx'.format(competition))
+
         protocol_df = protocol_df.merge(current_rank_df,
                                         how='left',
                                         on=participant_fields + ['Файл протокола'],
@@ -337,6 +353,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         current_rank_df.sort_values(by='Текущий ранг', ascending=False, inplace=True)
         current_rank_df.reset_index(drop=True, inplace=True)
         current_rank_df.index += 1
+        current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг_{}.xlsx'.format(competition))
 
         protocols_rank_df_final = protocols_rank_df_final.append(protocol_df)
 
@@ -346,6 +363,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             protocols_rank_df_final['Кол-во прошедших соревнований'])
 
         protocols_rank_df_final.sort_values(by=['Дата соревнования', 'Возрастная группа', 'Место'], inplace=True)
+    # ------------------------------------------------------------------------------------------------------------------
+
     protocols_rank_df_final = protocols_rank_df_final[
         ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
          'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя',
@@ -354,7 +373,6 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
          'Ранг', 'Кол-во соревнований у участника', 'Доля отсутствующих стартов', 'Штраф за отсутствующие старты',
          'Текущий ранг', 'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
     protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
-    current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг.xlsx')
 
     return current_rank_df
 
@@ -367,35 +385,23 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df['Г.р.'] = current_rank_df['Г.р.'].astype(int)
     current_rank_df['Текущий ранг'] = current_rank_df['Текущий ранг'].apply(lambda x: round(x, 2))
     today = datetime.date(datetime.now())
-    current_rank_df.rename(columns={'Текущий ранг': 'Ранг на ' + str(today),
+    rank_name = '{} на '.format(application_config.rank_to_calculate) + str(today)
+    current_rank_df.rename(columns={'Текущий ранг': rank_name,
                                     'Кол-во прошедших соревнований': '№ Старта',
                                     'Кол-во cоревнований для текущего ранга': 'В учет',
                                     'Кол-во соревнований у участника': 'У участника',
                                     'Доля отсутствующих стартов': '% пропусков',
                                     'Количество отсутствующих стартов': '# пропусков',
                                     'Штраф за отсутствующие старты': 'Штраф'}, inplace=True)
-    current_rank_df['Штраф'] = ((1 - current_rank_df['Штраф']) * 100).apply(lambda x: round(x)).astype(int).astype(str) + '%'
+    current_rank_df['Штраф'] = ((1 - current_rank_df['Штраф']) * 100).apply(lambda x: round(x)).astype(int).astype(
+        str) + '%'
     current_rank_df['Штраф'] = current_rank_df['Штраф'].apply(lambda x: x if x != '0%' else '-')
     current_rank_df = current_rank_df[
-        ['№', 'Участник', 'Г.р.', 'Ранг на ' + str(today), '№ Старта', 'В учет', 'У участника', 'Штраф']]
+        ['№', 'Участник', 'Г.р.', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']]
 
-    current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset='Ранг на ' + str(today))
-    current_rank_df.to_excel(application_config.rank_dir / "Текущий ранг_{}.xlsx".format(str(today)), index=False)
+    current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset=rank_name)
+    current_rank_df.to_excel(application_config.rank_dir / (rank_name + ".xlsx"), index=False)
 
-    # https: // www.cedarville.edu / insights / computer - help / post / how - to - repeat - excel - spreadsheet - column - headings - at - top - of - page
-
-    # fig, ax = plt.subplots(figsize=(12, 4))
-    # ax.axis('tight')
-    # ax.axis('off')
-    # the_table = ax.table(cellText=current_rank_df.values, colLabels=current_rank_df.columns, loc='center',
-    #                      cellLoc='left', colWidths=[0.05, 0.3, 0.05, 0.2] + [0.1] * 4)
-    #     colors = plt.cm.BuPu(np.linspace(0, 0.6, len(current_rank_df)))
-    #     colors = colors[::-1]
-    # for idx, b in enumerate(colors):
-    #     the_table[(idx + 1, 3)].set_facecolor(b)
-    # pp = PdfPages(application_config.rank_dir / "Текущий ранг_{}.pdf".format(str(today)))
-    # pp.savefig(fig, bbox_inches='tight')
-    # pp.close()
     pass
 
 
