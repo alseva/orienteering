@@ -33,6 +33,8 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
     df_not_started = pd.DataFrame()
     df_left_race = pd.DataFrame()
 
+    print(application_config.rank_to_calculate)
+    print('Обработка протоколов')
     # one iteration - one protocol -------------------------------------------------------------------------------------
     for name in os.listdir(application_config.protocols_dir):
         if os.path.isfile(os.path.join(application_config.protocols_dir, name)):
@@ -184,6 +186,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
     protocols_rank_df_final = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.']
+
+    print('Расчет ранга')
 
     # ------------------------------------------------------------------------------------------------------------------
     # В цикле по каждому соревнованию рассчитываем ранг
