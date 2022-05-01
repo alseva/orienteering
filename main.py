@@ -240,7 +240,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                               how='left',
                               on=participant_fields,
                               suffixes=(None, '_config'))
-            if df_top['Текущий ранг'].count() > 0:
+            if df_top['Текущий ранг'].count() > 0 and df['№ п/п'].dropna().nunique() > 1:
                 df_top.dropna(subset=['Текущий ранг'], inplace=True)
                 df_top = df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
                 df_top['Участники сравнит. ранга соревнований'] = (df_top['Фамилия'] + ' ' + df_top['Имя'] + ': ' +
