@@ -36,11 +36,37 @@ class ApplicationConfig:
 
         self.protocol_source_type = main_settings['Тип источника протоколов']
 
-        self.protocols_dir = Path(main_settings['Путь к папке со всеми протоколами'])
-        self.race_of_the_top_protocols_dir = main_settings['Путь к папке с протоколами для гонки сильнейших']
-        self.previous_year_final_rank_file = main_settings['Путь к файлу с финальным рангом предыдущего года']
-        self.rank_dir = Path(main_settings['Путь к папке с результатами'])
-        self.rank_color = main_settings['Цвет ранга']
+        rank_to_calculate = main_settings['Ранг для расчета']
+        if rank_to_calculate == 'Общий летний ранг':
+            self.protocols_dir = main_settings['Путь к папке со всеми протоколами для Общего летнего ранга']
+            self.previous_year_final_rank_file = main_settings[
+                'Путь к файлу с финальным Общим летним рангом предыдущего года']
+            self.rank_dir = Path(main_settings['Путь к папке с результатами Общего летнего ранга'])
+            self.rank_color = main_settings['Цвет Общего летнего ранга']
+        elif rank_to_calculate == 'Общий зимний ранг':
+            self.protocols_dir = main_settings['Путь к папке со всеми протоколами для Общего зимнего ранга']
+            self.previous_year_final_rank_file = main_settings[
+                'Путь к файлу с финальным Общим зимним рангом предыдущего года']
+            self.rank_dir = Path(main_settings['Путь к папке с результатами Общего зимнего ранга'])
+            self.rank_color = main_settings['Цвет Общего зимнего ранга']
+        elif rank_to_calculate == 'Лесной ранг':
+            self.protocols_dir = main_settings['Путь к папке со всеми протоколами для Лесного ранга']
+            self.previous_year_final_rank_file = main_settings[
+                'Путь к файлу с финальным Лесным рангом предыдущего года']
+            self.rank_dir = Path(main_settings['Путь к папке с результатами Лесного ранга'])
+            self.rank_color = main_settings['Цвет Лесного ранга']
+        elif rank_to_calculate == 'Спринт ранг':
+            self.protocols_dir = main_settings['Путь к папке со всеми протоколами для Спринт ранга']
+            self.previous_year_final_rank_file = main_settings[
+                'Путь к файлу с финальным Спринт рангом предыдущего года']
+            self.rank_dir = Path(main_settings['Путь к папке с результатами Спринт ранга'])
+            self.rank_color = main_settings['Цвет Спринт ранга']
+        else:
+            self.protocols_dir = main_settings['Путь к папке с протоколами для гонки сильнейших']
+            self.previous_year_final_rank_file = main_settings[
+                'Путь к файлу с финальным рангом Гонки сильнейших предыдущего года']
+            self.rank_dir = Path(main_settings['Путь к папке с результатами ранга Гонки сильнейших'])
+            self.rank_color = main_settings['Цвет ранга Гонки сильнейших']
 
     def _load_protocol_urls_df(self):
         protocol_urls = list(self._workbook[APP_CONFIG_URLS_TO_PROTOCOLS_SHEET].values)
