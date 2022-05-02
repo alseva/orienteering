@@ -22,9 +22,10 @@ from validation.rank_config_validation import check_rank_config
 def main():
     application_config = ApplicationConfig(APP_CONFIG_FILE)
     rank_formula_config = RankFormulaConfig(RANK_CONFIG_FILE)
-    protocols_df, left_races_df = load_protocols(application_config, rank_formula_config)
+    protocols_df, left_races_df, df_not_started = load_protocols(application_config, rank_formula_config)
     current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df)
     save_current_rank(application_config, current_rank_df)
+    transform_and_save_not_started_and_left_race(application_config, left_races_df, df_not_started)
 
 
 def load_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> tuple[
@@ -176,7 +177,7 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
             df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx', index=False)
             df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx', index=False)
 
-    return dfs_union, df_left_race
+    return dfs_union, df_left_race, df_not_started
 
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
@@ -208,11 +209,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
              'Разр.', 'Команда', 'Ранг группы', 'left_race']]
         protocol_df = pd.concat([protocol_df, left_race_df])
 
-
         # расчет ранга соревнований отдельно для каждой возрастной группы
         def calculate_competition_rank(df):
-            participants_number = len(df[df['left_race'].isna()])  # исключаем снятных из кол-ва учасников для расчета ранга соревнований
-            participants_number_for_relative_rank = len(df)  # учитываем снятых для расчета сравнительго ранга соревнований
+            participants_number = len(
+                df[df['left_race'].isna()])  # исключаем снятных из кол-ва учасников для расчета ранга соревнований
+            participants_number_for_relative_rank = len(
+                df)  # учитываем снятых для расчета сравнительго ранга соревнований
 
             if participants_number > 8:
                 top_result = 5
@@ -232,7 +234,6 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             else:
                 top_relative_rank_results = participants_number_for_relative_rank
 
-
             def get_mean_by_top(s, top, asc):
                 if len(s) == 1:
                     return s.iloc[0]
@@ -247,6 +248,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                     top -= 1
 
                 return winner * 1.15
+
             df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
 
             df_top = df.merge(current_rank_df,
@@ -274,6 +276,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                 'Сравнит. ранг соревнований'] * (1 - df['Коэффициент вида старта'] * (df['Место'] - 1) / (df['N'] - 1))
 
             return df
+
         protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False).apply(
             calculate_competition_rank)
 
@@ -350,6 +353,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             df['Текущий ранг'] = df.sort_values(by='Ранг', ascending=False).head(races_number)[
                                      'Ранг'].mean() * penalty_lack_races
             return df
+
         current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(define_current_rank)
 
         # добавляем рассчитанный текущий ранг к протоколу соревнования
@@ -388,7 +392,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
          'tсравнит ', 'Сравнит. ранг соревнований', 'Участники сравнит. ранга соревнований', 'N', 'Ранг по группе',
          'Ранг', 'Кол-во соревнований у участника', 'Доля отсутствующих стартов', 'Штраф за отсутствующие старты',
          'Текущий ранг', 'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
-    protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы {}.xlsx'.format(application_config.rank_to_calculate), index=False)
+    protocols_rank_df_final.to_excel(
+        application_config.rank_dir / 'Протоколы {}.xlsx'.format(application_config.rank_to_calculate), index=False)
 
     return current_rank_df
 
@@ -420,6 +425,18 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
 
     pass
 
+
+def transform_and_save_not_started_and_left_race(application_config, left_races_df, df_not_started):
+    print('Не стартовавшие')
+    df_not_started = df_not_started[['Фамилия', 'Имя', 'Г.р.', 'Файл протокола']]
+    df_not_started = df_not_started.dropna()
+    df_not_started = df_not_started.groupby(by=['Фамилия', 'Имя', 'Г.р.'], as_index=False).count()
+    df_not_started.rename(columns={'Файл протокола': 'Кол-во стартов'}, inplace=True)
+    df_not_started.sort_values(by='Кол-во стартов', ascending=False, inplace=True)
+    today = datetime.date(datetime.now())
+    rank_name = 'Не стартовавшие {} на '.format(application_config.rank_to_calculate) + str(today)
+    df_not_started.to_excel(application_config.rank_dir / (rank_name + ".xlsx"), index=False)
+    pass
 
 
 if __name__ == '__main__':
