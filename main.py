@@ -387,7 +387,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
          'tсравнит ', 'Сравнит. ранг соревнований', 'Участники сравнит. ранга соревнований', 'N', 'Ранг по группе',
          'Ранг', 'Кол-во соревнований у участника', 'Доля отсутствующих стартов', 'Штраф за отсутствующие старты',
          'Текущий ранг', 'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
-    protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
+    protocols_rank_df_final.to_excel(application_config.rank_dir / 'Протоколы {}.xlsx'.format(application_config.rank_to_calculate), index=False)
 
     return current_rank_df
 
