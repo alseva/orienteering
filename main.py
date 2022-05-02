@@ -35,7 +35,8 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
     print(application_config.rank_to_calculate)
     print('Обработка протоколов')
-    # one iteration - one protocol -------------------------------------------------------------------------------------
+
+    # одна итерация - один протокол  -----------------------------------------------------------------------------------
     for name in os.listdir(application_config.protocols_dir):
         if os.path.isfile(os.path.join(application_config.protocols_dir, name)):
             print(name)
@@ -46,11 +47,10 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
             heading2 = ['h2']
             heading1 = ['h1']
 
-            # one iteration - one group --------------------------------------------------------------------------------
+            # одна итерация - одна возрастная группа -------------------------------------------------------------------
             for tbl in range(len(dfs)):
                 header1 = str(soup.find_all(heading1)[0].text.strip())
                 competition = ''.join(re.split('\\n', header1)[0]).replace('Протокол результатов', '').strip()
-                # str.replace(header1, 'Протокол результатов.', '').strip()
 
                 date_string = re.findall('[0-9]{2}\.[0-9]{2}\.[0-9]{4}', header1)
                 if len(date_string) > 0:
@@ -61,12 +61,13 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                     date_string = os.path.getctime(os.path.join(application_config.protocols_dir, name))
                 competition_date = date_string.date()
 
-                # Transform protocol columns ---------------------------------------------------------------------------
+                # Трансформация колонок протокола ----------------------------------------------------------------------
                 if 'Фамилия, Имя' in dfs[tbl].columns:
                     dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[0])
                     dfs[tbl]['Имя'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[1:])
                     dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.join(' ')
                     dfs[tbl].drop(labels='Фамилия, Имя', axis=1, inplace=True)
+
                 if 'Г.р' in dfs[tbl].columns:
                     dfs[tbl].rename(columns={'Г.р': 'Г.р.'}, inplace=True)
 
@@ -146,21 +147,19 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                                           how='left',
                                           on='Возрастная группа',
                                           suffixes=(None, '_config'))
-                # Transform protocol columns ---------------------------------------------------------------------------
 
-                # filter open and other not relevant groups
+                # оставляем для расчета ранга только группы МЖ12 и старше
                 dfs[tbl] = dfs[tbl][
                     dfs[tbl]['Возрастная группа'].isin(
                         rank_formula_config.group_rank_df['Возрастная группа'].to_list())]
-                # filter open and other not relevant groups
 
+                # дополняем таблицы со снятыми и не стартовавшими
                 df_not_started = df_not_started.append(dfs[tbl][dfs[tbl]['Результат'] == 'н/с'])
                 df_left_race = df_left_race.append(dfs[tbl][dfs[tbl]['Результат'] == 'cнят'])
 
-                # filter records without result or without last/first name
+                # фильтруем снятых, не стартовавших или без имени или фамилии
                 dfs[tbl] = dfs[tbl][~((dfs[tbl]['Результат'] == 'cнят') | (dfs[tbl]['Результат'] == 'н/с') | (
                     dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()))]
-                # filter records without result or without last/first name
 
                 dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
                 dfs[tbl]['result_in_seconds'] = (
@@ -168,10 +167,12 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                         dfs[tbl]['Результат'].dt.minute * 60 +
                         dfs[tbl]['Результат'].dt.second)
                 dfs[tbl]['Результат'] = dfs[tbl]['Результат'].dt.time
+                # ------------------------------------------------------------------------------------------------------
 
+            # дополнем таблицу протоколов обработанным экземпляром
             dfs_union = dfs_union.append(pd.concat(dfs))
             dfs_union.reset_index(inplace=True, drop=True)
-            dfs_union.to_excel(application_config.rank_dir / 'Протоколы.xlsx', index=False)
+
             df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx', index=False)
             df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx', index=False)
 
@@ -418,6 +419,7 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df.to_excel(application_config.rank_dir / (rank_name + ".xlsx"), index=False)
 
     pass
+
 
 
 if __name__ == '__main__':
