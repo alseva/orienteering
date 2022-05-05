@@ -97,6 +97,7 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
                 dfs[tbl]['Г.р.'].replace(0, np.nan, inplace=True)
                 dfs[tbl]['Г.р.'] = dfs[tbl]['Г.р.'].fillna(dfs[tbl]['Г.р._map'])
                 dfs[tbl].drop(labels='Г.р._map', axis=1, inplace=True)
+                dfs[tbl]['Г.р.'].replace(np.nan, 0, inplace=True)
 
                 dfs[tbl] = dfs[tbl].merge(application_config.mapping_correct_participant_data,
                                           how='left',
@@ -176,6 +177,9 @@ def load_protocols(application_config: ApplicationConfig, rank_formula_config: R
 
             df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx', index=False)
             df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx', index=False)
+            dfs_union[dfs_union['Г.р.'] == 0][[
+                'Дата соревнования', 'Соревнование', 'Фамилия', 'Имя', 'Г.р.', 'Возрастная группа']].to_excel(
+                application_config.rank_dir / 'Участники без года рождения.xlsx', index=False)
 
     return dfs_union, df_left_race, df_not_started
 
