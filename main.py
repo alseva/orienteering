@@ -42,7 +42,7 @@ def download_protocols(application_config: ApplicationConfig):
 
 
 def prepare_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> tuple[
-    DataFrame, DataFrame]:
+    DataFrame, DataFrame, DataFrame]:
     dfs_union = pd.DataFrame()
     df_not_started = pd.DataFrame()
     df_left_race = pd.DataFrame()
