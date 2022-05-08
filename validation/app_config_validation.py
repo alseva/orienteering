@@ -68,7 +68,7 @@ def check_urls_to_protocols(wb: Workbook):
 
     values: Generator = wb[APP_CONFIG_URLS_TO_PROTOCOLS_SHEET].values
     header = next(values)
-    if header != ('№ п/п', 'Ссылка', 'Учитывать при расчете ранга для Гонки сильнейших'):
+    if header != ('№ п/п', 'Ссылка', 'Общий летний ранг', 'Лесной ранг', 'Спринт ранг', 'Гонка сильнейших', 'Общий зимний ранг'):
         raise AppConfigValidationError(
             f'Unsupported header on the "{APP_CONFIG_URLS_TO_PROTOCOLS_SHEET}" sheet: {header}.')
 

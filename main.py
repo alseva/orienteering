@@ -2,6 +2,8 @@ import logging
 import math
 import os
 import re
+import urllib
+import urllib.request
 import warnings
 from datetime import datetime
 
@@ -22,13 +24,24 @@ from validation.rank_config_validation import check_rank_config
 def main():
     application_config = ApplicationConfig(APP_CONFIG_FILE)
     rank_formula_config = RankFormulaConfig(RANK_CONFIG_FILE)
-    protocols_df, left_races_df, df_not_started = load_protocols(application_config, rank_formula_config)
+    if application_config.protocol_source_type == 'Ссылка':
+        download_protocols(application_config)
+    protocols_df, left_races_df, df_not_started = prepare_protocols(application_config, rank_formula_config)
     current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df)
     save_current_rank(application_config, current_rank_df)
     transform_and_save_not_started_and_left_race(application_config, left_races_df, df_not_started)
 
 
-def load_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> tuple[
+def download_protocols(application_config: ApplicationConfig):
+    for url in application_config.protocol_urls_df['Ссылка']:
+        name = url.split('/')[-1]
+        result = urllib.request.urlopen(url)
+        html_content = '\n'.join(line.decode('utf-8') for line in result)
+        with open(application_config.protocols_dir / name, 'w') as f:
+            f.write(html_content)
+
+
+def prepare_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> tuple[
     DataFrame, DataFrame]:
     dfs_union = pd.DataFrame()
     df_not_started = pd.DataFrame()
