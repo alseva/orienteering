@@ -19,6 +19,8 @@ handlers:
     maxBytes: 1073741824
     backupCount: 2
 loggers:
+  matplotlib:
+    level: INFO
   root:
     level: DEBUG
     handlers: [ console, file ]
