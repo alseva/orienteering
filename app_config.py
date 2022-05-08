@@ -70,9 +70,12 @@ class ApplicationConfig:
             self.rank_color = main_settings['Цвет ранга Гонки сильнейших']
         self.protocols_dir = Path(self.protocols_dir)
         self.rank_dir = Path(self.rank_dir)
+
     def _load_protocol_urls_df(self):
         protocol_urls = list(self._workbook[APP_CONFIG_URLS_TO_PROTOCOLS_SHEET].values)
-        self.protocol_urls_df = pd.DataFrame(protocol_urls[1:], columns=protocol_urls[0])
+        all_protocol_urls_df = pd.DataFrame(protocol_urls[1:], columns=protocol_urls[0])
+        all_protocol_urls_df = all_protocol_urls_df[all_protocol_urls_df[self.rank_to_calculate] == 'да']
+        self.protocol_urls_df = all_protocol_urls_df[['Ссылка']]
 
     def _load_mapping_yob_df(self):
         mapping_yob = list(self._workbook['Маппинг. Год рождения'].values)
