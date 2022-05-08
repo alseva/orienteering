@@ -1,0 +1,1 @@
+pyinstaller main.py --noconfirm --clean --onefile --name fso_karelia_rank --add-data "logger.yaml;." --icon fso_karelia_rank.ico
