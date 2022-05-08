@@ -36,7 +36,7 @@ def download_protocols(application_config: ApplicationConfig):
     for url in application_config.protocol_urls_df['Ссылка']:
         name = url.split('/')[-1]
         result = urllib.request.urlopen(url)
-        html_content = '\n'.join(line.decode('utf-8') for line in result)
+        html_content = ''.join(line.decode('utf-8') for line in result)
         with open(application_config.protocols_dir / name, 'w') as f:
             f.write(html_content)
 
