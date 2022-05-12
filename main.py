@@ -172,9 +172,10 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
                 df_not_started = df_not_started.append(dfs[tbl][dfs[tbl]['Результат'] == 'н/с'])
                 df_left_race = df_left_race.append(dfs[tbl][dfs[tbl]['Результат'] == 'cнят'])
 
-                # фильтруем снятых, не стартовавших или без имени или фамилии
+                # фильтруем снятых, не стартовавших или без имени или фамилии или вместо места поставлен прочерк
                 dfs[tbl] = dfs[tbl][~((dfs[tbl]['Результат'] == 'cнят') | (dfs[tbl]['Результат'] == 'н/с') | (
-                    dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()))]
+                    dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()) | (dfs[tbl]['Место'] == '-'))]
+                dfs[tbl]['Место'] = dfs[tbl]['Место'].astype(int)
 
                 dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
                 dfs[tbl]['result_in_seconds'] = (
@@ -193,7 +194,6 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
             dfs_union[dfs_union['Г.р.'] == 0][[
                 'Дата соревнования', 'Соревнование', 'Фамилия', 'Имя', 'Г.р.', 'Возрастная группа']].to_excel(
                 application_config.rank_dir / 'Участники без года рождения.xlsx', index=False)
-
     return dfs_union, df_left_race, df_not_started
 
 
