@@ -24,10 +24,18 @@ from validation.rank_config_validation import check_rank_config
 def main():
     application_config = ApplicationConfig(APP_CONFIG_FILE)
     rank_formula_config = RankFormulaConfig(RANK_CONFIG_FILE)
+
+    if application_config.rank_to_calculate == 'Лесной ранг':
+        race_number_to_start_apply_rules = rank_formula_config.race_number_to_start_apply_rules_forest_rank
+    if application_config.rank_to_calculate == 'Спринт ранг':
+        race_number_to_start_apply_rules = rank_formula_config.race_number_to_start_apply_rules_sprint_rank
+    else:
+        race_number_to_start_apply_rules = rank_formula_config.race_number_to_start_apply_rules
+
     if application_config.protocol_source_type == 'Ссылка':
         download_protocols(application_config)
     protocols_df, left_races_df, df_not_started = prepare_protocols(application_config, rank_formula_config)
-    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df)
+    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df, race_number_to_start_apply_rules)
     save_current_rank(application_config, current_rank_df)
     transform_and_save_not_started_and_left_race(application_config, left_races_df, df_not_started)
 
@@ -198,7 +206,7 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
 
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
-                           protocols_df: pd.DataFrame, left_races_df: pd.DataFrame) -> pd.DataFrame:
+                           protocols_df: pd.DataFrame, left_races_df: pd.DataFrame, race_number_to_start_apply_rules) -> pd.DataFrame:
     protocols_rank_df = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Текущий ранг': []})
@@ -310,7 +318,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         # если кол-во стартов еще не превысило, указанное в конфигураторе для начала применения
         # правила штрафов и 50% лучших соревнований, то для расчета текущего ранга берутся все старты
-        if current_rank_df['Файл протокола'].nunique() <= rank_formula_config.race_number_to_start_apply_rules:
+        if current_rank_df['Файл протокола'].nunique() <= race_number_to_start_apply_rules:
             current_rank_df['Кол-во cоревнований для текущего ранга'] = current_rank_df['Файл протокола'].nunique()
         else:
             current_rank_df['Кол-во cоревнований для текущего ранга'] = math.ceil(
@@ -326,7 +334,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         # если кол-во стартов еще не превысило, указанное в конфигураторе для начала применения
         # правила штрафов и 50% лучших соревнований, то долю/кол-во отсутствующих стартов считают = 0
-        if current_rank_df['Файл протокола'].nunique() <= rank_formula_config.race_number_to_start_apply_rules:
+        if current_rank_df['Файл протокола'].nunique() <= race_number_to_start_apply_rules:
             current_rank_df['Доля отсутствующих стартов'] = 0
             current_rank_df['% интервал отсутствующих стартов'] = 0
         else:
