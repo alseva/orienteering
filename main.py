@@ -35,7 +35,8 @@ def main():
     if application_config.protocol_source_type == 'Ссылка':
         download_protocols(application_config)
     protocols_df, left_races_df, df_not_started = prepare_protocols(application_config, rank_formula_config)
-    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df, race_number_to_start_apply_rules)
+    current_rank_df = calculate_current_rank(application_config, rank_formula_config, protocols_df, left_races_df,
+                                             race_number_to_start_apply_rules)
     save_current_rank(application_config, current_rank_df)
     transform_and_save_not_started_and_left_race(application_config, left_races_df, df_not_started)
 
@@ -95,6 +96,7 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
 
                 dfs[tbl] = dfs[tbl].astype({'Фамилия': 'string', 'Имя': 'string'})
                 dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()
+                dfs[tbl]['Пол'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()[:1]
 
                 dfs[tbl] = dfs[tbl].merge(application_config.mapping_group_df,
                                           how='left',
@@ -206,13 +208,14 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
 
 
 def calculate_current_rank(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig,
-                           protocols_df: pd.DataFrame, left_races_df: pd.DataFrame, race_number_to_start_apply_rules) -> pd.DataFrame:
+                           protocols_df: pd.DataFrame, left_races_df: pd.DataFrame,
+                           race_number_to_start_apply_rules) -> pd.DataFrame:
     protocols_rank_df = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
-    current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Текущий ранг': []})
+    current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Пол': [], 'Текущий ранг': []})
     protocols_rank_df_final = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
-    participant_fields = ['Фамилия', 'Имя', 'Г.р.']
+    participant_fields = ['Фамилия', 'Имя', 'Г.р.', 'Пол']
 
     logging.info('Расчет ранга')
 
@@ -231,6 +234,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         left_race_df = left_race_df[
             ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
              'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя', 'Г.р.',
+             'Пол',
              'Разр.', 'Команда', 'Ранг группы', 'left_race']]
         protocol_df = pd.concat([protocol_df, left_race_df])
 
@@ -413,7 +417,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
     protocols_rank_df_final = protocols_rank_df_final[
         ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
          'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя',
-         'Г.р.', 'Разр.', 'Команда', 'Результат', 'Место', 'Отставание', 'Ранг группы', 'result_in_seconds',
+         'Г.р.', 'Пол', 'Разр.', 'Команда', 'Результат', 'Место', 'Отставание', 'Ранг группы', 'result_in_seconds',
          'tсравнит ', 'Сравнит. ранг соревнований', 'Участники сравнит. ранга соревнований', 'N', 'Ранг по группе',
          'Ранг', 'Кол-во соревнований у участника', 'Доля отсутствующих стартов', 'Штраф за отсутствующие старты',
          'Текущий ранг', 'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
@@ -425,8 +429,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
 def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd.DataFrame):
     current_rank_df.dropna(inplace=True)
-    current_rank_df.index.name = '№'
-    current_rank_df.reset_index(inplace=True)
+    current_rank_df.index.name = '№ общий'
     current_rank_df['Участник'] = current_rank_df['Фамилия'] + ' ' + current_rank_df['Имя']
     current_rank_df['Г.р.'] = current_rank_df['Г.р.'].astype(int)
     current_rank_df['Текущий ранг'] = current_rank_df['Текущий ранг'].apply(lambda x: round(x, 2))
@@ -443,10 +446,44 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
         str) + '%'
     current_rank_df['Штраф'] = current_rank_df['Штраф'].apply(lambda x: x if x != '0%' else '-')
     current_rank_df = current_rank_df[
-        ['№', 'Участник', 'Г.р.', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']]
+        ['Участник', 'Г.р.', 'Пол', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']]
 
-    current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset=rank_name)
-    current_rank_df.to_excel(application_config.rank_dir / (rank_name + ".xlsx"), index=False)
+    # current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset=rank_name)
+
+    def highlight_col(x):
+        df = x.copy()
+        mask = df['Пол'] == 'Ж'
+        df.loc[mask, :] = 'background-color: pink'
+        df.loc[~mask, :] = 'background-color: lightblue'
+        return df
+
+    current_rank_df_mix = current_rank_df.copy()
+    current_rank_df_mix = current_rank_df_mix.style.apply(highlight_col, axis=None,
+                                                          subset=['Участник', 'Г.р.', 'Пол', rank_name])
+    current_rank_df_mix.to_excel(application_config.rank_dir / (rank_name + " цветной.xlsx"))
+
+    current_rank_df_male = current_rank_df[current_rank_df['Пол'] == 'М'].copy()
+    current_rank_df_male.reset_index(drop=False, inplace=True)
+    current_rank_df_male.index += 1
+    current_rank_df_male.index.name = '№'
+    current_rank_df_male.drop(labels='Пол', axis=1, inplace=True)
+    current_rank_df_male = current_rank_df_male.style.background_gradient(cmap=application_config.rank_color,
+                                                                          subset=rank_name)
+    current_rank_df_male.to_excel(application_config.rank_dir / (rank_name + " мужчины.xlsx"))
+
+    current_rank_df_female = current_rank_df[current_rank_df['Пол'] == 'Ж'].copy()
+    current_rank_df_female.reset_index(drop=False, inplace=True)
+    current_rank_df_female.index += 1
+    current_rank_df_female.index.name = '№'
+    current_rank_df_female.drop(labels='Пол', axis=1, inplace=True)
+    current_rank_df_female = current_rank_df_female.style.background_gradient(cmap=application_config.rank_color,
+                                                                              subset=rank_name)
+
+    current_rank_df_female.to_excel(application_config.rank_dir / (rank_name + " женщины.xlsx"))
+
+    current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color,
+                                                                          subset=rank_name)
+    current_rank_df.to_excel(application_config.rank_dir / (rank_name + ".xlsx"))
 
     pass
 
