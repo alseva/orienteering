@@ -18,6 +18,7 @@ class ApplicationConfig:
         self.previous_year_final_rank_file = None
         self.rank_dir: Path = None
         self.rank_color = None
+        self.last_race_flag = None
         self._load_main_settings()
 
         self.protocol_urls_df: pd.DataFrame = None
@@ -70,6 +71,7 @@ class ApplicationConfig:
             self.rank_color = main_settings['Цвет ранга Гонки сильнейших']
         self.protocols_dir = Path(self.protocols_dir)
         self.rank_dir = Path(self.rank_dir)
+        self.last_race_flag = main_settings['Последнее соревнование сезона?']
 
     def _load_protocol_urls_df(self):
         protocol_urls = list(self._workbook[APP_CONFIG_URLS_TO_PROTOCOLS_SHEET].values)

@@ -215,7 +215,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                            race_number_to_start_apply_rules, race_number_to_start_apply_relative_rank) -> pd.DataFrame:
     protocols_rank_df = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
-    current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Пол': [], 'Текущий ранг': []})
+    current_rank_df = pd.DataFrame.from_dict({'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Пол': [], 'Текущий ранг': [], 'Итоговый ранг': []})
     protocols_rank_df_final = pd.DataFrame.from_dict(
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.', 'Пол']
@@ -227,6 +227,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
     # дополняем общий файл рангов соревнований новым расчетным значением
     # рассчитываем текущий ранг - как он изменился после соревнования
     competitions_cnt = 1
+    competitions_total = protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].nunique()
     for competition in protocols_df.sort_values(by='Дата соревнования')['Файл протокола'].unique():
         logging.info(str(competitions_cnt) + '. ' + competition)
         protocol_df = protocols_df[protocols_df['Файл протокола'] == competition].copy()
@@ -238,8 +239,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         left_race_df = left_race_df[
             ['Дата соревнования', 'Соревнование', 'Файл протокола', 'Уровень старта', 'Коэффициент уровня старта',
              'Вид старта', 'Коэффициент вида старта', 'Возрастная группа', '№ п/п', 'Номер', 'Фамилия', 'Имя', 'Г.р.',
-             'Пол',
-             'Разр.', 'Команда', 'Ранг группы', 'left_race']]
+             'Пол', 'Разр.', 'Команда', 'Ранг группы', 'left_race']]
         protocol_df = pd.concat([protocol_df, left_race_df])
 
         # расчет ранга соревнований отдельно для каждой возрастной группы
@@ -389,6 +389,15 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(define_current_rank)
 
+        # если расчет по последнему соревнованию в сезоне, то применяем правила обнуления
+        if application_config.last_race_flag == 'да' and competitions_cnt == competitions_total:
+            current_rank_df['Итоговый ранг'] = np.where(
+                current_rank_df['Доля отсутствующих стартов'] >= rank_formula_config.race_percentage_to_reset_final_rank,
+                0,
+                current_rank_df['Текущий ранг'])
+        else:
+            current_rank_df['Итоговый ранг'] = np.nan
+
         # добавляем рассчитанный текущий ранг к протоколу соревнования
         protocol_df = protocol_df.merge(current_rank_df,
                                         how='left',
@@ -397,7 +406,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         # сохраняем текущий ранг в файл
         current_rank_df = current_rank_df[
-            participant_fields + ['Текущий ранг', 'Кол-во прошедших соревнований',
+            participant_fields + ['Текущий ранг', 'Итоговый ранг', 'Кол-во прошедших соревнований',
                                   'Кол-во cоревнований для текущего ранга', 'Кол-во соревнований у участника',
                                   'Доля отсутствующих стартов', '% интервал отсутствующих стартов',
                                   'Штраф за отсутствующие старты',
@@ -425,7 +434,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
          'Г.р.', 'Пол', 'Разр.', 'Команда', 'Результат', 'Место', 'Отставание', 'Ранг группы', 'result_in_seconds',
          'tсравнит ', 'Сравнит. ранг соревнований', 'Участники сравнит. ранга соревнований', 'N', 'Ранг по группе',
          'Ранг', 'Кол-во соревнований у участника', 'Доля отсутствующих стартов', 'Штраф за отсутствующие старты',
-         'Текущий ранг', 'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
+         'Текущий ранг', 'Итоговый ранг', 'Кол-во прошедших соревнований', 'Кол-во cоревнований для текущего ранга']]
     protocols_rank_df_final.to_excel(
         application_config.rank_dir / 'Протоколы {}.xlsx'.format(application_config.rank_to_calculate), index=False)
 
@@ -433,25 +442,35 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
 
 def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd.DataFrame):
-    current_rank_df.dropna(inplace=True)
+    today = datetime.date(datetime.now())
+    year = today.year
+    current_rank_df.dropna(subset=['Текущий ранг'], inplace=True)
     current_rank_df.index.name = '№ общий'
     current_rank_df['Участник'] = current_rank_df['Фамилия'] + ' ' + current_rank_df['Имя']
     current_rank_df['Г.р.'] = current_rank_df['Г.р.'].astype(int)
     current_rank_df['Текущий ранг'] = current_rank_df['Текущий ранг'].apply(lambda x: round(x, 2))
-    today = datetime.date(datetime.now())
     rank_name = '{} на '.format(application_config.rank_to_calculate) + str(today)
-    current_rank_df.rename(columns={'Текущий ранг': rank_name,
+    columns = {'Текущий ранг': rank_name,
                                     'Кол-во прошедших соревнований': '№ Старта',
                                     'Кол-во cоревнований для текущего ранга': 'В учет',
                                     'Кол-во соревнований у участника': 'У участника',
                                     'Доля отсутствующих стартов': '% пропусков',
                                     '% интервал отсутствующих стартов': '# пропусков',
-                                    'Штраф за отсутствующие старты': 'Штраф'}, inplace=True)
+                                    'Штраф за отсутствующие старты': 'Штраф'}
+    fields_to_save = ['Участник', 'Г.р.', 'Пол', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']
+    fields_to_highlight = [rank_name]
+    if application_config.last_race_flag == 'да':
+        current_rank_df['Итоговый ранг'] = current_rank_df['Итоговый ранг'].apply(lambda x: round(x, 2))
+        final_rank_name = 'Итоговый ранг сезона {}'.format(year)
+        columns['Итоговый ранг'] = final_rank_name
+        fields_to_save.append(final_rank_name)
+        fields_to_highlight.append(final_rank_name)
+
+    current_rank_df.rename(columns=columns, inplace=True)
     current_rank_df['Штраф'] = ((1 - current_rank_df['Штраф']) * 100).apply(lambda x: round(x)).astype(int).astype(
         str) + '%'
     current_rank_df['Штраф'] = current_rank_df['Штраф'].apply(lambda x: x if x != '0%' else '-')
-    current_rank_df = current_rank_df[
-        ['Участник', 'Г.р.', 'Пол', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']]
+    current_rank_df = current_rank_df[fields_to_save]
 
     # current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset=rank_name)
 
@@ -473,7 +492,7 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df_male.index.name = '№'
     current_rank_df_male.drop(labels='Пол', axis=1, inplace=True)
     current_rank_df_male = current_rank_df_male.style.background_gradient(cmap=application_config.rank_color,
-                                                                          subset=rank_name)
+                                                                          subset=fields_to_highlight)
     current_rank_df_male.to_excel(application_config.rank_dir / (rank_name + " мужчины.xlsx"))
 
     current_rank_df_female = current_rank_df[current_rank_df['Пол'] == 'Ж'].copy()
@@ -482,12 +501,12 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df_female.index.name = '№'
     current_rank_df_female.drop(labels='Пол', axis=1, inplace=True)
     current_rank_df_female = current_rank_df_female.style.background_gradient(cmap=application_config.rank_color,
-                                                                              subset=rank_name)
+                                                                              subset=fields_to_highlight)
 
     current_rank_df_female.to_excel(application_config.rank_dir / (rank_name + " женщины.xlsx"))
 
     current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color,
-                                                                          subset=rank_name)
+                                                                          subset=fields_to_highlight)
     current_rank_df.to_excel(application_config.rank_dir / (rank_name + ".xlsx"))
 
     pass

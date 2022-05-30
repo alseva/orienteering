@@ -18,6 +18,7 @@ class RankFormulaConfig:
         self.race_number_to_start_apply_relative_rank = None
         self.race_number_to_start_apply_relative_rank_forest = None
         self.race_number_to_start_apply_relative_rank_sprint = None
+        self.race_percentage_to_reset_final_rank = None
         self._load_main_settings()
 
         self.race_type_df: pd.DataFrame = None
@@ -42,6 +43,7 @@ class RankFormulaConfig:
         self.race_number_to_start_apply_relative_rank = main_settings[5][1]
         self.race_number_to_start_apply_relative_rank_forest = main_settings[6][1]
         self.race_number_to_start_apply_relative_rank_sprint = main_settings[7][1]
+        self.race_percentage_to_reset_final_rank = main_settings[8][1]
 
     def _load_race_type_df(self):
         race_types = list(self._workbook[RANK_CONFIG_RACE_TYPE_SHEET].values)
