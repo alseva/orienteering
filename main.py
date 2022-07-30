@@ -28,7 +28,7 @@ def main():
     if application_config.rank_to_calculate == 'Лесной ранг':
         race_number_to_start_apply_rules = rank_formula_config.race_number_to_start_apply_rules_forest_rank
         race_number_to_start_apply_relative_rank = rank_formula_config.race_number_to_start_apply_relative_rank_forest
-    if application_config.rank_to_calculate == 'Спринт ранг':
+    elif application_config.rank_to_calculate == 'Спринт ранг':
         race_number_to_start_apply_rules = rank_formula_config.race_number_to_start_apply_rules_sprint_rank
         race_number_to_start_apply_relative_rank = rank_formula_config.race_number_to_start_apply_relative_rank_sprint
     else:
@@ -162,8 +162,8 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
                         return 'Онежская весна'
                     if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
                         return 'Всероссийские соревнования'
-                    if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0:
-                        return 'Клубный кубок Карелии'
+                    if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0 or len(re.findall('.*ккк.*', s)) > 0:
+                        return 'Клубный кубок Карелии (ККК)'
 
                 dfs[tbl]['Уровень старта'] = dfs[tbl]['Уровень старта'].apply(race_level_mapping)
                 dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_level_df,
