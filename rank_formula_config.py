@@ -1,9 +1,17 @@
+from decimal import *
+
 import pandas as pd
 from openpyxl import load_workbook
+
+# getcontext().prec = 28
 
 from constants import RANK_CONFIG_MAIN_SETTINGS_SHEET, RANK_CONFIG_RACE_TYPE_SHEET, RANK_CONFIG_RACE_LEVEL_SHEET, \
     RANK_CONFIG_GROUP_RANK_SHEET, RANK_CONFIG_PENALTY_LACK_RACES_SHEET, RANK_CONFIG_PENALTY_NOT_STARTED_SHEET, \
     RANK_CONFIG_PENALTY_LEFT_RACE_SHEET, RANK_CONFIG_FILE
+
+
+def get_decimals(s):
+    return Decimal(s)
 
 
 class RankFormulaConfig:
@@ -69,6 +77,11 @@ class RankFormulaConfig:
     def _load_penalty_lack_races_df(self):
         penalty_lack_races = list(self._workbook[RANK_CONFIG_PENALTY_LACK_RACES_SHEET].values)
         self.penalty_lack_races_df = pd.DataFrame(penalty_lack_races[1:], columns=penalty_lack_races[0])
+        self.penalty_lack_races_df['Штраф за отсутствующие старты'] = self.penalty_lack_races_df[
+                                                                          'Штраф за отсутствующие старты'] * 100
+        self.penalty_lack_races_df['Штраф за отсутствующие старты'] = (self.penalty_lack_races_df[
+                                                                           'Штраф за отсутствующие старты'].apply(
+            get_decimals) / 100)
 
     def _load_penalty_not_started_df(self):
         penalty_not_started = list(self._workbook[RANK_CONFIG_PENALTY_NOT_STARTED_SHEET].values)
