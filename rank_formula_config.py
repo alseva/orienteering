@@ -56,10 +56,20 @@ class RankFormulaConfig:
     def _load_race_type_df(self):
         race_types = list(self._workbook[RANK_CONFIG_RACE_TYPE_SHEET].values)
         self.race_type_df = pd.DataFrame(race_types[1:], columns=race_types[0])
+        self.race_type_df['Коэффициент вида старта'] = self.race_type_df[
+                                                                          'Коэффициент вида старта'] * 100
+        self.race_type_df['Коэффициент вида старта'] = (self.race_type_df[
+                                                                           'Коэффициент вида старта'].apply(
+            get_decimals) / 100)
 
     def _load_race_level_df(self):
         race_levels = list(self._workbook[RANK_CONFIG_RACE_LEVEL_SHEET].values)
         self.race_level_df = pd.DataFrame(race_levels[1:], columns=race_levels[0])
+        self.race_level_df['Коэффициент уровня старта'] = self.race_level_df[
+                                                                          'Коэффициент уровня старта'] * 100
+        self.race_level_df['Коэффициент уровня старта'] = (self.race_level_df[
+                                                                           'Коэффициент уровня старта'].apply(
+            get_decimals) / 100)
 
     def _load_group_rank_df(self):
         group_ranks = list(self._workbook[RANK_CONFIG_GROUP_RANK_SHEET].values)
