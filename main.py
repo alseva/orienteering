@@ -198,10 +198,6 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
                 dfs[tbl] = dfs[tbl][~((dfs[tbl]['Результат'] == 'cнят') | (dfs[tbl]['Результат'] == 'н/с') | (
                     dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()) | (dfs[tbl]['Место'] == '-'))]
 
-                print(dfs[tbl]['Возрастная группа'].unique())
-                print(dfs[tbl]['Результат'])
-                # print(dfs[tbl]['Место'])
-
                 dfs[tbl]['Место'] = dfs[tbl]['Место'].astype(int)
 
                 dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
