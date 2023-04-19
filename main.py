@@ -329,10 +329,19 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
             df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
 
-            df_top = df.merge(current_rank_df,
-                              how='left',
-                              on=participant_fields,
-                              suffixes=(None, '_config'))
+            # если расчет ранга осуществляется для первого соревнования в сезоне,
+            # то берем итоговый ранг прошлого сезона в качестве текущего ранга для расчета сравнительного в 1ом соревновании
+            if competitions_cnt == 1 and len(df_previous_year_final_rank) > 0:
+                df_top = df.merge(df_previous_year_final_rank,
+                                  how='left',
+                                  on=participant_fields,
+                                  suffixes=(None, '_config'))
+                df_top.rename(columns={'Ранг': 'Текущий ранг'}, inplace=True)
+            else:
+                df_top = df.merge(current_rank_df,
+                                  how='left',
+                                  on=participant_fields,
+                                  suffixes=(None, '_config'))
             # есть текущий ранг и в группе больше одного участника и номер соревнования уже позволяет использовать текущий ранг спортсменов
             if df_top['Текущий ранг'].count() > 0 and df[
                 '№ п/п'].dropna().nunique() > 1 and competitions_cnt > race_number_to_start_apply_relative_rank:
@@ -363,7 +372,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False).apply(
             calculate_competition_rank, competitions_cnt)
 
-        # если учасник в протоколе был сразу в нескольких возрастных группах,
+        # если участник в протоколе был сразу в нескольких возрастных группах,
         # то для него берется лучший ранг из рассчитанных
         protocol_df['Ранг'] = protocol_df.groupby(by=['Файл протокола'] + participant_fields, as_index=False)[
             'Ранг по группе'].transform(lambda x: x.max())
