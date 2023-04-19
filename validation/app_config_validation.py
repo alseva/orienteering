@@ -42,7 +42,7 @@ def check_workbook(wb: Workbook):
         raise AppConfigValidationError(f'Unsupported protocol source type: "{protocol_source_type}".')
 
     for rank_name in (
-    'Общего летнего ранга', 'Общего зимнего ранга', 'Лесного ранга', 'Спринт ранга', 'гонки сильнейших'):
+            'Общего летнего ранга', 'Общего зимнего ранга', 'Лесного ранга', 'Спринт ранга', 'гонки сильнейших'):
         protocols_dir = f'Путь к папке со всеми протоколами для {rank_name}'
         if protocols_dir not in main_settings:
             raise AppConfigValidationError(f'Field "{protocols_dir}" was not found.')
@@ -68,7 +68,9 @@ def check_urls_to_protocols(wb: Workbook):
 
     values: Generator = wb[APP_CONFIG_URLS_TO_PROTOCOLS_SHEET].values
     header = next(values)
-    if header != ('№ п/п', 'Ссылка', 'Общий летний ранг', 'Лесной ранг', 'Спринт ранг', 'Гонка сильнейших', 'Общий зимний ранг'):
+    if header != (
+    '№ п/п', 'Ссылка', 'Общий летний ранг', 'Лесной ранг', 'Спринт ранг', 'Гонка сильнейших', 'Общий зимний ранг',
+    'Сезон'):
         raise AppConfigValidationError(
             f'Unsupported header on the "{APP_CONFIG_URLS_TO_PROTOCOLS_SHEET}" sheet: {header}.')
 

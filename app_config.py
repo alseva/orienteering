@@ -19,6 +19,7 @@ class ApplicationConfig:
         self.rank_dir: Path = None
         self.rank_color = None
         self.last_race_flag = None
+        self.season = None
         self._load_main_settings()
 
         self.protocol_urls_df: pd.DataFrame = None
@@ -72,11 +73,13 @@ class ApplicationConfig:
         self.protocols_dir = Path(self.protocols_dir)
         self.rank_dir = Path(self.rank_dir)
         self.last_race_flag = main_settings['Последнее соревнование сезона?']
+        self.season = main_settings['Сезон']
 
     def _load_protocol_urls_df(self):
         protocol_urls = list(self._workbook[APP_CONFIG_URLS_TO_PROTOCOLS_SHEET].values)
         all_protocol_urls_df = pd.DataFrame(protocol_urls[1:], columns=protocol_urls[0])
-        all_protocol_urls_df = all_protocol_urls_df[all_protocol_urls_df[self.rank_to_calculate] == 'да']
+        all_protocol_urls_df = all_protocol_urls_df[(all_protocol_urls_df[self.rank_to_calculate] == 'да') &
+                                                    (all_protocol_urls_df['Сезон'] == self.season)]
         self.protocol_urls_df = all_protocol_urls_df[['Ссылка']]
 
     def _load_mapping_yob_df(self):
