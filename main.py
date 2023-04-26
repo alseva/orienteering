@@ -42,6 +42,9 @@ def main():
         race_number_to_start_apply_rules = rank_formula_config.race_number_to_start_apply_rules
         race_number_to_start_apply_relative_rank = rank_formula_config.race_number_to_start_apply_relative_rank
 
+    logging.info('Сезон: ' + str(application_config.season))
+    logging.info(application_config.rank_to_calculate)
+
     if application_config.protocol_source_type == 'Ссылка':
         download_protocols(application_config)
     df_previous_year_final_rank = get_previous_year_final_rank(application_config)
@@ -68,8 +71,7 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
     df_not_started = pd.DataFrame()
     df_left_race = pd.DataFrame()
 
-    logging.info(application_config.rank_to_calculate)
-    logging.info('Обработка протоколов')
+    logging.info('--Обработка протоколов')
 
     # одна итерация - один протокол  -----------------------------------------------------------------------------------
     for name in os.listdir(application_config.protocols_dir):
@@ -262,6 +264,7 @@ def get_previous_year_final_rank(application_config: ApplicationConfig):
             df_previous_year_final_rank = df_previous_year_final_rank[df_previous_year_final_rank['Ранг'] > 0]
             df_previous_year_final_rank['Флаг финального ранга прошлого сезона'] = True
             df_previous_year_final_rank['Ранг'] = df_previous_year_final_rank['Ранг'].apply(get_decimal)
+            logging.info('--Прошлогодний ранг (сезон {}) идет в учет'.format(application_config.season - 1))
     return df_previous_year_final_rank
 
 
@@ -277,7 +280,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         {'Кол-во прошедших соревнований': [], 'Участники сравнит. ранга соревнований': []})
     participant_fields = ['Фамилия', 'Имя', 'Г.р.', 'Пол']
 
-    logging.info('Расчет ранга')
+    logging.info('--Расчет ранга')
 
     # ------------------------------------------------------------------------------------------------------------------
     # В цикле по каждому соревнованию рассчитываем ранг
@@ -627,7 +630,7 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
 
 
 def transform_and_save_not_started_and_left_race(application_config, left_races_df, df_not_started):
-    logging.info('Не стартовавшие')
+    logging.info('--Не стартовавшие')
     df_not_started = df_not_started[['Фамилия', 'Имя', 'Г.р.', 'Файл протокола']]
     df_not_started = df_not_started.dropna()
     df_not_started = df_not_started.groupby(by=['Фамилия', 'Имя', 'Г.р.'], as_index=False).count()
