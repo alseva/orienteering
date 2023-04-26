@@ -74,7 +74,6 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
     # одна итерация - один протокол  -----------------------------------------------------------------------------------
     for name in os.listdir(application_config.protocols_dir):
         if os.path.isfile(os.path.join(application_config.protocols_dir, name)):
-            logging.info(name)
             dfs = pd.read_html(application_config.protocols_dir / name)
 
             soup = BeautifulSoup(open(application_config.protocols_dir / name, 'r'), 'lxml')
@@ -82,160 +81,176 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
             heading2 = ['h2']
             heading1 = ['h1']
 
-            # одна итерация - одна возрастная группа -------------------------------------------------------------------
-            for tbl in range(len(dfs)):
-                header1 = str(soup.find_all(heading1)[0].text.strip())
-                competition = ''.join(re.split('\\n', header1)[0]).replace('Протокол результатов', '').strip()
+            header1 = str(soup.find_all(heading1)[0].text.strip())
+            competition = ''.join(re.split('\\n', header1)[0]).replace('Протокол результатов', '').strip()
 
-                date_string = re.findall('[0-9]{2}\.[0-9]{2}\.[0-9]{4}', header1)
-                if len(date_string) > 0:
-                    date_string = datetime.strptime(date_string[0], '%d.%m.%Y')
-                elif len(re.findall('[0-9]{8}_', name)) > 0:
-                    date_string = datetime.strptime(re.findall('[0-9]{8}_', name)[0].replace('_', ''), '%Y%m%d')
-                else:
-                    date_string = os.path.getctime(os.path.join(application_config.protocols_dir, name))
-                competition_date = date_string.date()
+            date_string = re.findall('[0-9]{2}\.[0-9]{2}\.[0-9]{4}', header1)
+            if len(date_string) > 0:
+                date_string = datetime.strptime(date_string[0], '%d.%m.%Y')
+            elif len(re.findall('[0-9]{8}_', name)) > 0:
+                date_string = datetime.strptime(re.findall('[0-9]{8}_', name)[0].replace('_', ''), '%Y%m%d')
+            else:
+                date_string = os.path.getctime(os.path.join(application_config.protocols_dir, name))
+            competition_date = date_string.date()
 
-                # Трансформация колонок протокола ----------------------------------------------------------------------
-                if 'Фамилия, Имя' in dfs[tbl].columns:
-                    dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[0])
-                    dfs[tbl]['Имя'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[1:])
-                    dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.join(' ')
-                    dfs[tbl].drop(labels='Фамилия, Имя', axis=1, inplace=True)
+            # определяем сезон протокола (для зимнего ранга декабрь относится к следующему году)
+            if application_config.rank_to_calculate == 'Общий зимний ранг' and competition_date.month == 12:
+                competition_year = competition_date.year + 1
+            else:
+                competition_year = competition_date.year
 
-                if 'Г.р' in dfs[tbl].columns:
-                    dfs[tbl].rename(columns={'Г.р': 'Г.р.'}, inplace=True)
+            # обрабатываем только протоколы, относящиеся к сезону, заданному в конфигураторе
+            if competition_year == application_config.season:
+                logging.info(name)
+                # одна итерация - одна возрастная группа -------------------------------------------------------------------
+                for tbl in range(len(dfs)):
 
-                dfs[tbl] = dfs[tbl].astype({'Фамилия': 'string', 'Имя': 'string'})
-                dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()
-                dfs[tbl]['Пол'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()[:1]
+                    # Трансформация колонок протокола ----------------------------------------------------------------------
+                    if 'Фамилия, Имя' in dfs[tbl].columns:
+                        dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[0])
+                        dfs[tbl]['Имя'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[1:])
+                        dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.join(' ')
+                        dfs[tbl].drop(labels='Фамилия, Имя', axis=1, inplace=True)
 
-                dfs[tbl] = dfs[tbl].merge(application_config.mapping_group_df,
-                                          how='left',
-                                          on='Возрастная группа',
-                                          suffixes=(None, '_config'))
-                dfs[tbl]['Возрастная группа верная'].fillna(dfs[tbl]['Возрастная группа'], inplace=True)
-                dfs[tbl].drop(labels='Возрастная группа', axis=1, inplace=True)
-                dfs[tbl].rename(columns={'Возрастная группа верная': 'Возрастная группа'}, inplace=True)
+                    if 'Г.р' in dfs[tbl].columns:
+                        dfs[tbl].rename(columns={'Г.р': 'Г.р.'}, inplace=True)
 
-                dfs[tbl]['Соревнование'] = competition
-                dfs[tbl]['Дата соревнования'] = competition_date
-                dfs[tbl]['Уровень старта'] = header1
-                dfs[tbl]['Файл протокола'] = name
-                dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия'].str.upper()
-                dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.upper()
+                    dfs[tbl] = dfs[tbl].astype({'Фамилия': 'string', 'Имя': 'string'})
+                    dfs[tbl]['Возрастная группа'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()
+                    dfs[tbl]['Пол'] = str(soup.find_all(heading2)[tbl].text.strip()).upper()[:1]
 
-                dfs[tbl] = dfs[tbl].merge(application_config.mapping_yob_df,
-                                          how='left',
-                                          on=['Фамилия', 'Имя'],
-                                          suffixes=(None, '_map'))
-                dfs[tbl]['Г.р.'].replace(0, np.nan, inplace=True)
-                dfs[tbl]['Г.р.'] = dfs[tbl]['Г.р.'].fillna(dfs[tbl]['Г.р._map'])
-                dfs[tbl].drop(labels='Г.р._map', axis=1, inplace=True)
-                dfs[tbl]['Г.р.'].replace(np.nan, 0, inplace=True)
+                    dfs[tbl] = dfs[tbl].merge(application_config.mapping_group_df,
+                                              how='left',
+                                              on='Возрастная группа',
+                                              suffixes=(None, '_config'))
+                    dfs[tbl]['Возрастная группа верная'].fillna(dfs[tbl]['Возрастная группа'], inplace=True)
+                    dfs[tbl].drop(labels='Возрастная группа', axis=1, inplace=True)
+                    dfs[tbl].rename(columns={'Возрастная группа верная': 'Возрастная группа'}, inplace=True)
 
-                dfs[tbl] = dfs[tbl].merge(application_config.mapping_correct_participant_data,
-                                          how='left',
-                                          on=['Фамилия', 'Имя', 'Г.р.'],
-                                          suffixes=(None, '_map'))
-                dfs[tbl]['Фамилия верная'].fillna(dfs[tbl]['Фамилия'], inplace=True)
-                dfs[tbl].drop(labels='Фамилия', axis=1, inplace=True)
-                dfs[tbl].rename(columns={'Фамилия верная': 'Фамилия'}, inplace=True)
+                    dfs[tbl]['Соревнование'] = competition
+                    dfs[tbl]['Дата соревнования'] = competition_date
+                    dfs[tbl]['Уровень старта'] = header1
+                    dfs[tbl]['Файл протокола'] = name
+                    dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия'].str.upper()
+                    dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.upper()
 
-                dfs[tbl]['Имя верное'].fillna(dfs[tbl]['Имя'], inplace=True)
-                dfs[tbl].drop(labels='Имя', axis=1, inplace=True)
-                dfs[tbl].rename(columns={'Имя верное': 'Имя'}, inplace=True)
+                    dfs[tbl] = dfs[tbl].merge(application_config.mapping_yob_df,
+                                              how='left',
+                                              on=['Фамилия', 'Имя'],
+                                              suffixes=(None, '_map'))
+                    dfs[tbl]['Г.р.'].replace(0, np.nan, inplace=True)
+                    dfs[tbl]['Г.р.'] = dfs[tbl]['Г.р.'].fillna(dfs[tbl]['Г.р._map'])
+                    dfs[tbl].drop(labels='Г.р._map', axis=1, inplace=True)
+                    dfs[tbl]['Г.р.'].replace(np.nan, 0, inplace=True)
 
-                dfs[tbl]['Г.р. верный'].fillna(dfs[tbl]['Г.р.'], inplace=True)
-                dfs[tbl].drop(labels='Г.р.', axis=1, inplace=True)
-                dfs[tbl].rename(columns={'Г.р. верный': 'Г.р.'}, inplace=True)
+                    dfs[tbl] = dfs[tbl].merge(application_config.mapping_correct_participant_data,
+                                              how='left',
+                                              on=['Фамилия', 'Имя', 'Г.р.'],
+                                              suffixes=(None, '_map'))
+                    dfs[tbl]['Фамилия верная'].fillna(dfs[tbl]['Фамилия'], inplace=True)
+                    dfs[tbl].drop(labels='Фамилия', axis=1, inplace=True)
+                    dfs[tbl].rename(columns={'Фамилия верная': 'Фамилия'}, inplace=True)
 
-                dfs[tbl]['Результат'].replace('п\.п\. .*', 'cнят', inplace=True, regex=True)
+                    dfs[tbl]['Имя верное'].fillna(dfs[tbl]['Имя'], inplace=True)
+                    dfs[tbl].drop(labels='Имя', axis=1, inplace=True)
+                    dfs[tbl].rename(columns={'Имя верное': 'Имя'}, inplace=True)
 
-                def remove_duplicates_and_convert_to_str(s):
-                    s = ''.join(set(s))
-                    return s if len(s) > 0 else 'раздельный старт'
+                    dfs[tbl]['Г.р. верный'].fillna(dfs[tbl]['Г.р.'], inplace=True)
+                    dfs[tbl].drop(labels='Г.р.', axis=1, inplace=True)
+                    dfs[tbl].rename(columns={'Г.р. верный': 'Г.р.'}, inplace=True)
 
-                dfs[tbl]['Вид старта'] = dfs[tbl]['Соревнование'].str.findall('общий старт').apply(
-                    remove_duplicates_and_convert_to_str)
-                dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_type_df,
-                                          how='left',
-                                          on='Вид старта',
-                                          suffixes=(None, '_map'))
+                    dfs[tbl]['Результат'].replace('п\.п\. .*', 'cнят', inplace=True, regex=True)
 
-                def race_level_mapping(s):
-                    s = s.lower()
-                    if len(re.findall('.*((чемпионат)|(первенство))+.*петрозаводск.*', s)) > 0:
-                        return 'Чемпионат и первенство г.Петрозаводска'
-                    if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
-                        return 'Чемпионат и первенство Республики Карелия'
-                    if len(re.findall('.*онежск.*весн.*', s)) > 0:
-                        return 'Онежская весна'
-                    if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
-                        return 'Всероссийские соревнования'
-                    if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0 or len(re.findall('.*ккк.*', s)) > 0:
-                        return 'Клубный кубок Карелии (ККК)'
+                    def remove_duplicates_and_convert_to_str(s):
+                        s = ''.join(set(s))
+                        return s if len(s) > 0 else 'раздельный старт'
 
-                dfs[tbl]['Уровень старта'] = dfs[tbl]['Уровень старта'].apply(race_level_mapping)
-                dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_level_df,
-                                          how='left',
-                                          on='Уровень старта',
-                                          suffixes=(None, '_map'))
-                dfs[tbl]['Коэффициент уровня старта'] = 1 + dfs[tbl]['Коэффициент уровня старта'].fillna(0)
-                dfs[tbl] = dfs[tbl].merge(rank_formula_config.group_rank_df,
-                                          how='left',
-                                          on='Возрастная группа',
-                                          suffixes=(None, '_config'))
+                    dfs[tbl]['Вид старта'] = dfs[tbl]['Соревнование'].str.findall('общий старт').apply(
+                        remove_duplicates_and_convert_to_str)
+                    dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_type_df,
+                                              how='left',
+                                              on='Вид старта',
+                                              suffixes=(None, '_map'))
 
-                # оставляем для расчета ранга только группы МЖ12 и старше
-                dfs[tbl] = dfs[tbl][
-                    dfs[tbl]['Возрастная группа'].isin(
-                        rank_formula_config.group_rank_df['Возрастная группа'].to_list())]
+                    def race_level_mapping(s):
+                        s = s.lower()
+                        if len(re.findall('.*((чемпионат)|(первенство))+.*петрозаводск.*', s)) > 0:
+                            return 'Чемпионат и первенство г.Петрозаводска'
+                        if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
+                            return 'Чемпионат и первенство Республики Карелия'
+                        if len(re.findall('.*онежск.*весн.*', s)) > 0:
+                            return 'Онежская весна'
+                        if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
+                            return 'Всероссийские соревнования'
+                        if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0 or len(re.findall('.*ккк.*', s)) > 0:
+                            return 'Клубный кубок Карелии (ККК)'
 
-                # дополняем таблицы со снятыми и не стартовавшими
-                df_not_started = df_not_started.append(dfs[tbl][dfs[tbl]['Результат'] == 'н/с'])
-                df_left_race = df_left_race.append(dfs[tbl][dfs[tbl]['Результат'] == 'cнят'])
+                    dfs[tbl]['Уровень старта'] = dfs[tbl]['Уровень старта'].apply(race_level_mapping)
+                    dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_level_df,
+                                              how='left',
+                                              on='Уровень старта',
+                                              suffixes=(None, '_map'))
+                    dfs[tbl]['Коэффициент уровня старта'] = 1 + dfs[tbl]['Коэффициент уровня старта'].fillna(0)
+                    dfs[tbl] = dfs[tbl].merge(rank_formula_config.group_rank_df,
+                                              how='left',
+                                              on='Возрастная группа',
+                                              suffixes=(None, '_config'))
 
-                # фильтруем снятых, не стартовавших или без имени или фамилии или вместо места поставлен прочерк
-                dfs[tbl] = dfs[tbl][~((dfs[tbl]['Результат'] == 'cнят') | (dfs[tbl]['Результат'] == 'н/с') | (
-                    dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()) | (dfs[tbl]['Место'] == '-'))]
+                    # оставляем для расчета ранга только группы МЖ12 и старше
+                    dfs[tbl] = dfs[tbl][
+                        dfs[tbl]['Возрастная группа'].isin(
+                            rank_formula_config.group_rank_df['Возрастная группа'].to_list())]
 
-                dfs[tbl]['Место'] = dfs[tbl]['Место'].astype(int)
+                    # дополняем таблицы со снятыми и не стартовавшими
+                    df_not_started = df_not_started.append(dfs[tbl][dfs[tbl]['Результат'] == 'н/с'])
+                    df_left_race = df_left_race.append(dfs[tbl][dfs[tbl]['Результат'] == 'cнят'])
 
-                dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
-                dfs[tbl]['result_in_seconds'] = (
-                        dfs[tbl]['Результат'].dt.hour * 60 * 60 +
-                        dfs[tbl]['Результат'].dt.minute * 60 +
-                        dfs[tbl]['Результат'].dt.second)
-                dfs[tbl]['Результат'] = dfs[tbl]['Результат'].dt.time
-                # ------------------------------------------------------------------------------------------------------
+                    # фильтруем снятых, не стартовавших или без имени или фамилии или вместо места поставлен прочерк
+                    dfs[tbl] = dfs[tbl][~((dfs[tbl]['Результат'] == 'cнят') | (dfs[tbl]['Результат'] == 'н/с') | (
+                        dfs[tbl]['Фамилия'].isna()) | (dfs[tbl]['Имя'].isna()) | (dfs[tbl]['Место'] == '-'))]
 
-            # дополнем таблицу протоколов обработанным экземпляром
-            dfs_union = dfs_union.append(pd.concat(dfs))
-            dfs_union.reset_index(inplace=True, drop=True)
+                    dfs[tbl]['Место'] = dfs[tbl]['Место'].astype(int)
 
-            df_not_started.to_excel(application_config.rank_dir / 'Протоколы_не_стартовали.xlsx', index=False)
-            df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты.xlsx', index=False)
-            dfs_union[dfs_union['Г.р.'] == 0][[
-                'Дата соревнования', 'Соревнование', 'Фамилия', 'Имя', 'Г.р.', 'Возрастная группа']].to_excel(
-                application_config.rank_dir / 'Участники без года рождения.xlsx', index=False)
+                    dfs[tbl]['Результат'] = pd.to_datetime(dfs[tbl]['Результат'])
+                    dfs[tbl]['result_in_seconds'] = (
+                            dfs[tbl]['Результат'].dt.hour * 60 * 60 +
+                            dfs[tbl]['Результат'].dt.minute * 60 +
+                            dfs[tbl]['Результат'].dt.second)
+                    dfs[tbl]['Результат'] = dfs[tbl]['Результат'].dt.time
+                    # ------------------------------------------------------------------------------------------------------
+
+                # дополнем таблицу протоколов обработанным экземпляром
+                dfs_union = dfs_union.append(pd.concat(dfs))
+                dfs_union.reset_index(inplace=True, drop=True)
+
+                df_not_started.to_excel(
+                    application_config.rank_dir / 'Протоколы_не_стартовали_{}.xlsx'.format(competition_year),
+                    index=False)
+                df_left_race.to_excel(application_config.rank_dir / 'Протоколы_сняты_{}.xlsx'.format(competition_year),
+                                      index=False)
+                dfs_union[dfs_union['Г.р.'] == 0][[
+                    'Дата соревнования', 'Соревнование', 'Фамилия', 'Имя', 'Г.р.', 'Возрастная группа']].to_excel(
+                    application_config.rank_dir / 'Участники без года рождения_{}.xlsx'.format(competition_year),
+                    index=False)
     return dfs_union, df_left_race, df_not_started
 
 
 def get_previous_year_final_rank(application_config: ApplicationConfig):
-    previous_year_rank_listdir = os.listdir(application_config.previous_year_final_rank_file)
-    if len(previous_year_rank_listdir) == 1:
-        previous_year_rank_file = os.path.join(application_config.previous_year_final_rank_file,
-                                               previous_year_rank_listdir[0])
-        if os.path.isfile(previous_year_rank_file):
+    df_previous_year_final_rank = pd.DataFrame.from_dict(
+        {'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Пол': [], 'Ранг': [], 'Флаг финального ранга прошлого сезона': []})
+    for name in os.listdir(application_config.previous_year_final_rank_file):
+        previous_year_final_rank_file = os.path.join(application_config.previous_year_final_rank_file, name)
+        if os.path.isfile(previous_year_final_rank_file) and (
+                int(name.replace('.xlsx', '').split('_')[-1]) == application_config.season - 1):
             participant_fields = ['Фамилия', 'Имя', 'Г.р.', 'Пол']
-            df_previous_year_final_rank = pd.read_excel(previous_year_rank_file)
+            df_previous_year_final_rank = pd.read_excel(previous_year_final_rank_file)
             for col in df_previous_year_final_rank.columns:
                 if re.match('Итоговый ранг сезона [0-9]{4}', col):
                     previous_year_final_rank_column = col
             df_previous_year_final_rank = df_previous_year_final_rank[
                 df_previous_year_final_rank[previous_year_final_rank_column] > 0]
-            df_previous_year_final_rank['Фамилия'] = df_previous_year_final_rank['Участник'].astype(str).str.split(' ').map(
+            df_previous_year_final_rank['Фамилия'] = df_previous_year_final_rank['Участник'].astype(str).str.split(
+                ' ').map(
                 lambda x: x[0])
             df_previous_year_final_rank['Имя'] = df_previous_year_final_rank['Участник'].astype(str).str.split(' ').map(
                 lambda x: x[1:])
@@ -247,9 +262,6 @@ def get_previous_year_final_rank(application_config: ApplicationConfig):
             df_previous_year_final_rank = df_previous_year_final_rank[df_previous_year_final_rank['Ранг'] > 0]
             df_previous_year_final_rank['Флаг финального ранга прошлого сезона'] = True
             df_previous_year_final_rank['Ранг'] = df_previous_year_final_rank['Ранг'].apply(get_decimal)
-    else:
-        df_previous_year_final_rank = pd.DataFrame.from_dict(
-            {'Фамилия': [], 'Имя': [], 'Г.р.': [], 'Пол': [], 'Ранг': [], 'Флаг финального ранга прошлого сезона': []})
     return df_previous_year_final_rank
 
 
@@ -492,6 +504,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         def left_current_rank_only(df):
             df = df.sort_values(by='Дата соревнования', ascending=False).head(1)
             return df
+
         current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(left_current_rank_only)
 
         # добавляем текущий ранг к протоколу текущего соревнования
@@ -502,11 +515,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         # сохраняем текущий ранг в файл
         current_rank_df = current_rank_df[participant_fields + ['Текущий ранг', 'Итоговый ранг'] +
-                                            current_rank_fields + ['Дата текущего соревнования']]
+                                          current_rank_fields + ['Дата текущего соревнования']]
         current_rank_df.sort_values(by='Текущий ранг', ascending=False, inplace=True)
         current_rank_df.reset_index(drop=True, inplace=True)
         current_rank_df.index += 1
-        current_rank_df.to_excel(application_config.rank_dir / 'Текущий ранг_{}.xlsx'.format(competition))
+        current_rank_df.to_excel(
+            application_config.rank_dir / 'Текущий ранг_{}_{}.xlsx'.format(competition, application_config.season))
 
         # добавляем протокол соревнования к общей таблице протоколов
         protocols_rank_df_final = protocols_rank_df_final.append(protocol_df)
@@ -531,7 +545,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
          'Текущий ранг', 'Дата текущего соревнования', 'Итоговый ранг', 'Кол-во прошедших соревнований',
          'Кол-во cоревнований для текущего ранга']]
     protocols_rank_df_final.to_excel(
-        application_config.rank_dir / 'Протоколы {}.xlsx'.format(application_config.rank_to_calculate), index=False)
+        application_config.rank_dir / 'Протоколы {}_{}.xlsx'.format(application_config.rank_to_calculate,
+                                                                    application_config.season), index=False)
 
     return current_rank_df
 
@@ -580,7 +595,8 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df_mix = current_rank_df.copy()
     current_rank_df_mix = current_rank_df_mix.style.apply(highlight_col, axis=None,
                                                           subset=['Участник', 'Г.р.', 'Пол', rank_name])
-    current_rank_df_mix.to_excel(application_config.rank_dir / (rank_name + " цветной.xlsx"))
+    current_rank_df_mix.to_excel(
+        application_config.rank_dir / (rank_name + " цветной_{}.xlsx".format(application_config.season)))
 
     current_rank_df_male = current_rank_df[current_rank_df['Пол'] == 'М'].copy()
     current_rank_df_male.reset_index(drop=False, inplace=True)
@@ -589,7 +605,8 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df_male.drop(labels='Пол', axis=1, inplace=True)
     current_rank_df_male = current_rank_df_male.style.background_gradient(cmap=application_config.rank_color,
                                                                           subset=fields_to_highlight)
-    current_rank_df_male.to_excel(application_config.rank_dir / (rank_name + " мужчины.xlsx"))
+    current_rank_df_male.to_excel(
+        application_config.rank_dir / (rank_name + " мужчины_{}.xlsx".format(application_config.season)))
 
     current_rank_df_female = current_rank_df[current_rank_df['Пол'] == 'Ж'].copy()
     current_rank_df_female.reset_index(drop=False, inplace=True)
@@ -599,11 +616,12 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df_female = current_rank_df_female.style.background_gradient(cmap=application_config.rank_color,
                                                                               subset=fields_to_highlight)
 
-    current_rank_df_female.to_excel(application_config.rank_dir / (rank_name + " женщины.xlsx"))
+    current_rank_df_female.to_excel(
+        application_config.rank_dir / (rank_name + " женщины_{}.xlsx".format(application_config.season)))
 
     current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color,
                                                                 subset=fields_to_highlight)
-    current_rank_df.to_excel(application_config.rank_dir / (rank_name + ".xlsx"))
+    current_rank_df.to_excel(application_config.rank_dir / (rank_name + "_{}.xlsx".format(application_config.season)))
 
     pass
 
@@ -617,7 +635,8 @@ def transform_and_save_not_started_and_left_race(application_config, left_races_
     df_not_started.sort_values(by='Кол-во стартов', ascending=False, inplace=True)
     today = datetime.date(datetime.now())
     rank_name = 'Не стартовавшие {} на '.format(application_config.rank_to_calculate) + str(today)
-    df_not_started.to_excel(application_config.rank_dir / (rank_name + ".xlsx"), index=False)
+    df_not_started.to_excel(application_config.rank_dir / (rank_name + "_{}.xlsx".format(application_config.season)),
+                            index=False)
     pass
 
 
