@@ -162,6 +162,7 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
                     dfs[tbl].rename(columns={'Г.р. верный': 'Г.р.'}, inplace=True)
 
                     dfs[tbl]['Результат'].replace('п\.п\. .*', 'cнят', inplace=True, regex=True)
+                    dfs[tbl]['Результат'].replace('cнят (запр.)', 'cнят', inplace=True, regex=False)
 
                     def remove_duplicates_and_convert_to_str(s):
                         s = ''.join(set(s))
