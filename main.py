@@ -512,9 +512,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(left_current_rank_only)
 
         # добавляем текущий ранг к протоколу текущего соревнования
+        # соединяем по участнику и соревнованию, по итогам которого расчитан последний текущий ранг
+        # считаем, что в один день может быть только одно соревнование
         protocol_df = protocol_df.merge(current_rank_df,
                                         how='left',
-                                        on=participant_fields + ['Файл протокола'],
+                                        left_on=participant_fields + ['Дата соревнования'],
+                                        right_on=participant_fields + ['Дата текущего соревнования'],
                                         suffixes=(None, '_config'))
 
         # сохраняем текущий ранг в файл
