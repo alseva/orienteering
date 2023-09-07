@@ -504,7 +504,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         current_rank_df['Дата текущего соревнования'] = current_rank_df[current_rank_df['Дата соревнования'].notna()][
             'Дата соревнования'].max()
 
-        # оставляем только строку с последним текущим рангом, доступным у каждого участника
+        # оставляем только строку по каждому участнику (с датой последнего соревнования, вошедшего в расчет ранга)
         def left_current_rank_only(df):
             df = df.sort_values(by='Дата соревнования', ascending=False).head(1)
             return df
