@@ -2,18 +2,13 @@ import logging
 import math
 import os
 import re
-import urllib
-import urllib.request
 import warnings
-from datetime import datetime
 from decimal import *
 
 getcontext().prec = 28
 
 import numpy as np
 import pandas as pd
-from bs4 import BeautifulSoup
-from pandas import DataFrame
 
 from app_config import ApplicationConfig
 from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE, VERSION
