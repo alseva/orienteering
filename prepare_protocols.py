@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import logging
 from logger import setup_logging
 import numpy as np
-import urllib
+import requests
 
 from app_config import ApplicationConfig
 from rank_formula_config import RankFormulaConfig
@@ -17,10 +17,8 @@ from constants import APP_CONFIG_FILE, RANK_CONFIG_FILE
 def download_protocols(application_config: ApplicationConfig):
     for url in application_config.protocol_urls_df['Ссылка']:
         name = url.split('/')[-1]
-        result = urllib.request.urlopen(url)
-        html_content = ''.join(line.decode('utf-8') for line in result)
         with open(application_config.protocols_dir / name, 'w') as f:
-            f.write(html_content)
+            f.write(requests.get(url).text)
 
 
 def prepare_protocols(application_config: ApplicationConfig, rank_formula_config: RankFormulaConfig) -> tuple[
