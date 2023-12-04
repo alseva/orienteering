@@ -67,11 +67,10 @@ def get_previous_year_final_rank(application_config: ApplicationConfig):
                     previous_year_final_rank_column = col
             df_previous_year_final_rank = df_previous_year_final_rank[
                 df_previous_year_final_rank[previous_year_final_rank_column] > 0]
-            df_previous_year_final_rank['Фамилия'] = df_previous_year_final_rank['Участник'].astype(str).str.split(
-                ' ').map(
-                lambda x: x[0])
-            df_previous_year_final_rank['Имя'] = df_previous_year_final_rank['Участник'].astype(str).str.split(' ').map(
-                lambda x: x[1:])
+            df_previous_year_final_rank['Фамилия'] = df_previous_year_final_rank['Участник'].map(
+                lambda x: str(x).split(' ')[0])
+            df_previous_year_final_rank['Имя'] = df_previous_year_final_rank['Участник'].map(
+                lambda x: str(x).split(' ')[1:])
             df_previous_year_final_rank['Имя'] = df_previous_year_final_rank['Имя'].str.join(' ')
             df_previous_year_final_rank.rename(columns={previous_year_final_rank_column: 'Ранг'}, inplace=True)
             df_previous_year_final_rank = df_previous_year_final_rank.astype(

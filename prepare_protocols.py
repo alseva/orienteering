@@ -65,8 +65,8 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
 
                     # Трансформация колонок протокола ----------------------------------------------------------------------
                     if 'Фамилия, Имя' in dfs[tbl].columns:
-                        dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[0])
-                        dfs[tbl]['Имя'] = dfs[tbl]['Фамилия, Имя'].astype(str).str.split(' ').map(lambda x: x[1:])
+                        dfs[tbl]['Фамилия'] = dfs[tbl]['Фамилия, Имя'].map(lambda x: str(x).split(' ')[0])
+                        dfs[tbl]['Имя'] = dfs[tbl]['Фамилия, Имя'].map(lambda x: str(x).split(' ')[1:])
                         dfs[tbl]['Имя'] = dfs[tbl]['Имя'].str.join(' ')
                         dfs[tbl].drop(labels='Фамилия, Имя', axis=1, inplace=True)
 
