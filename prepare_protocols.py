@@ -121,8 +121,8 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
                     dfs[tbl]['Результат'].replace('cнят (запр.)', 'cнят', inplace=True, regex=False)
 
                     dfs[tbl]['Вид старта'] = np.where(
-                                                        dfs[tbl]['Соревнование'].str.find('общий старт') > 0,
-                                                        'общий старт', 'раздельный старт')
+                        dfs[tbl]['Соревнование'].str.find('общий старт') > 0,
+                        'общий старт', 'раздельный старт')
                     dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_type_df,
                                               how='left',
                                               on='Вид старта',
@@ -130,15 +130,15 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
 
                     def race_level_mapping(s):
                         s = s.lower()
-                        if len(re.findall('.*((чемпионат)|(первенство))+.*петрозаводск.*', s)) > 0:
+                        if re.search('.*((чемпионат)|(первенство))+.*петрозаводск.*', s) is not None:
                             return 'Чемпионат и первенство г.Петрозаводска'
-                        if len(re.findall('.*((чемпионат)|(первенство))+.*карелия.*', s)) > 0:
+                        if re.search('.*((чемпионат)|(первенство))+.*карелия.*', s) is not None:
                             return 'Чемпионат и первенство Республики Карелия'
-                        if len(re.findall('.*онежск.*весн.*', s)) > 0:
+                        if re.search('.*онежск.*весн.*', s) is not None:
                             return 'Онежская весна'
-                        if len(re.findall('.*всероссийские.*соревнования.*', s)) > 0:
+                        if re.search('.*всероссийские.*соревнования.*', s) is not None:
                             return 'Всероссийские соревнования'
-                        if len(re.findall('.*клубн.*куб.*карели.*', s)) > 0 or len(re.findall('.*ккк.*', s)) > 0:
+                        if re.search('.*клубн.*куб.*карели.*', s) is not None or re.search('.*ккк.*', s) is not None:
                             return 'Клубный кубок Карелии (ККК)'
 
                     dfs[tbl]['Уровень старта'] = dfs[tbl]['Уровень старта'].apply(race_level_mapping)
