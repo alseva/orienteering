@@ -119,10 +119,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         # расчет ранга соревнований отдельно для каждой возрастной группы
         def calculate_competition_rank(df, competitions_cnt):
-            participants_number = len(
-                df[df['left_race'].isna()])  # исключаем снятных из кол-ва участников для расчета ранга соревнований
-            participants_number_for_relative_rank = len(
-                df)  # учитываем снятых для расчета сравнительго ранга соревнований
+
+            # исключаем снятных из кол-ва участников для расчета ранга соревнований
+            participants_number = len(df[df['left_race'].isna()])
+
+            # учитываем снятых для расчета сравнительго ранга соревнований
+            participants_number_for_relative_rank = len(df)
 
             if participants_number > 8:
                 top_result = 5
@@ -150,14 +152,14 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                 winner = s.iloc[0]
 
                 while top > 1:
-                    mean = s.head(top).apply(get_decimal).mean()
+                    mean = np.nanmean(s.head(top).values)
                     if mean / winner <= 1.15:
                         return mean
                     top -= 1
 
                 return Decimal(winner) * Decimal(1.15)
 
-            df['tсравнит '] = get_mean_by_top(df['result_in_seconds'], top_result, asc=True)
+            df['tсравнит '] = get_mean_by_top(df['result_in_seconds'].apply(get_decimal), top_result, asc=True)
 
             # если расчет ранга осуществляется для первого соревнования в сезоне,
             # то берем итоговый ранг прошлого сезона в качестве текущего ранга для расчета сравнительного в 1ом соревновании
@@ -181,7 +183,7 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                                                                    df_top['Текущий ранг'].apply(
                                                                        lambda x: round(x, 2)).astype(str))
 
-                df['Сравнит. ранг соревнований'] = df_top['Текущий ранг'].apply(get_decimal).mean()
+                df['Сравнит. ранг соревнований'] = np.nanmean(df_top['Текущий ранг'].apply(get_decimal).values)
                 df['Участники сравнит. ранга соревнований'] = df_top['Участники сравнит. ранга соревнований'].str.cat(
                     sep=', ')
 
@@ -204,8 +206,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
         # если участник в протоколе был сразу в нескольких возрастных группах,
         # то для него берется лучший ранг из рассчитанных
-        protocol_df['Ранг'] = protocol_df.groupby(by=['Файл протокола'] + participant_fields, as_index=False)[
-            'Ранг по группе'].transform(lambda x: x.max())
+        protocol_df['Ранг'] = protocol_df.groupby(by=['Файл протокола'] + participant_fields, as_index=False) \
+                                          ['Ранг по группе'].transform(lambda x: x.max())
 
         # дополняем таблицу протоколов соревнованием с рассчитанным рангом
         protocols_rank_df = protocols_rank_df.append(protocol_df)
@@ -213,8 +215,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         # для расчета текущего ранга берем таблицу с протоколами и рангами по каждому соревнованию
         # дубликаты убираем, так как у участника может быть несколько рангов по разным возрастным группам,
         # но ранг соревнования одинаковый для них проставлен (максимальный)
-        current_rank_df = protocols_rank_df[
-            participant_fields + ['Файл протокола', 'Ранг', 'Дата соревнования']].drop_duplicates()
+        current_rank_df = protocols_rank_df[participant_fields + ['Файл протокола', 'Ранг', 'Дата соревнования']] \
+                                            .drop_duplicates()
 
         # если кол-во стартов еще не превысило, указанное в конфигураторе для начала применения
         # правила штрафов и 50% лучших соревнований, то для расчета текущего ранга берутся все старты
@@ -227,8 +229,8 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         current_rank_df['Кол-во прошедших соревнований'] = competitions_cnt
 
         # кол-во соревнований у каждого участника
-        races_per_participant_df = current_rank_df.groupby(by=participant_fields, as_index=False).agg(
-            {'Файл протокола': 'nunique'})
+        races_per_participant_df = current_rank_df.groupby(by=participant_fields, as_index=False) \
+                                                  .agg({'Файл протокола': 'nunique'})
         races_per_participant_df.rename(columns={'Файл протокола': 'Кол-во соревнований у участника'}, inplace=True)
         current_rank_df = current_rank_df.merge(races_per_participant_df, how='left', on=participant_fields)
 
@@ -246,11 +248,10 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                                                                  get_decimal))
             current_rank_df['Доля отсутствующих стартов'] = current_rank_df['Доля отсутствующих стартов'].apply(
                 lambda x: math.floor(x * 100) / 100 if x > 0 else 0)
-            current_rank_df['% интервал отсутствующих стартов'] = (
+            current_rank_df['% интервал отсутствующих стартов'] = np.floor(100 *
                     (1 -
                      current_rank_df['Кол-во соревнований у участника'].apply(get_decimal) /
-                     current_rank_df['Кол-во cоревнований для текущего ранга'].apply(get_decimal))
-                    * 100).apply(lambda x: math.floor(x))
+                     current_rank_df['Кол-во cоревнований для текущего ранга'].apply(get_decimal)))
 
         def define_lack_races(x):
             if x >= 80.0:
@@ -292,12 +293,12 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         # скорректированное на штраф за отсутствующие старты
         def define_current_rank(df):
             penalty_lack_races = df['Штраф за отсутствующие старты'].max()
-            df['Текущий ранг'] = Decimal(df['Ранг'].mean()) * Decimal(penalty_lack_races)
+            df['Текущий ранг'] = Decimal(np.nanmean(df['Ранг'].values)) * Decimal(penalty_lack_races)
             return df
 
         # получаем топ рангов соревнований для каждого участника
-        current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False).apply(
-            define_top_races_for_current_rank)
+        current_rank_df = current_rank_df.groupby(by=participant_fields, as_index=False) \
+                                         .apply(define_top_races_for_current_rank)
 
         # добавляем финальный ранг прошлого сезона, если он есть, и рассчитываем текущий ранг для каждого участника
         if len(df_previous_year_final_rank) > 0:
