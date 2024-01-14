@@ -120,12 +120,9 @@ def prepare_protocols(application_config: ApplicationConfig, rank_formula_config
                     dfs[tbl]['Результат'].replace('п\.п\. .*', 'cнят', inplace=True, regex=True)
                     dfs[tbl]['Результат'].replace('cнят (запр.)', 'cнят', inplace=True, regex=False)
 
-                    def remove_duplicates_and_convert_to_str(s):
-                        s = ''.join(set(s))
-                        return s if len(s) > 0 else 'раздельный старт'
-
-                    dfs[tbl]['Вид старта'] = dfs[tbl]['Соревнование'].str.findall('общий старт').apply(
-                        remove_duplicates_and_convert_to_str)
+                    dfs[tbl]['Вид старта'] = np.where(
+                                                        dfs[tbl]['Соревнование'].str.find('общий старт') > 0,
+                                                        'общий старт', 'раздельный старт')
                     dfs[tbl] = dfs[tbl].merge(rank_formula_config.race_type_df,
                                               how='left',
                                               on='Вид старта',

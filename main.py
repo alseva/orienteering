@@ -246,27 +246,24 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                                                              current_rank_df[
                                                                  'Кол-во cоревнований для текущего ранга'].apply(
                                                                  get_decimal))
-            current_rank_df['Доля отсутствующих стартов'] = current_rank_df['Доля отсутствующих стартов'].apply(
-                lambda x: math.floor(x * 100) / 100 if x > 0 else 0)
+
+            def get_floor_for_decimal(s):
+                return np.where(s > 0, np.floor(s * 100) / 100, 0)
+            current_rank_df['Доля отсутствующих стартов'] = get_floor_for_decimal(current_rank_df['Доля отсутствующих стартов'])
             current_rank_df['% интервал отсутствующих стартов'] = np.floor(100 *
                     (1 -
                      current_rank_df['Кол-во соревнований у участника'].apply(get_decimal) /
                      current_rank_df['Кол-во cоревнований для текущего ранга'].apply(get_decimal)))
 
-        def define_lack_races(x):
-            if x >= 80.0:
-                return '80% и более'
-            elif x >= 60.0:
-                return '60% - 79%'
-            elif x >= 40.0:
-                return '40% - 59%'
-            elif x >= 20.0:
-                return '20% - 39%'
-            else:
-                return '-'
+        def define_lack_races(s):
+            return np.where(s >= 80.0, '80% и более',
+                     np.where(s >= 60.0, '60% - 79%',
+                              np.where(s >= 40.0, '40% - 59%',
+                                       np.where(s >= 20.0, '20% - 39%', '-'))))
 
-        current_rank_df['% интервал отсутствующих стартов'] = current_rank_df[
-            '% интервал отсутствующих стартов'].apply(define_lack_races)
+
+        current_rank_df['% интервал отсутствующих стартов'] = define_lack_races(
+                                                                current_rank_df['% интервал отсутствующих стартов'])
 
         current_rank_df = current_rank_df.merge(rank_formula_config.penalty_lack_races_df,
                                                 how='left',
@@ -308,16 +305,15 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
         # если расчет по последнему соревнованию в сезоне, то применяем правила обнуления
         if application_config.last_race_flag == 'да' and competitions_cnt == competitions_total:
             current_rank_df['Итоговый ранг'] = np.where(
-                current_rank_df[
-                    'Доля отсутствующих стартов'] >= rank_formula_config.race_percentage_to_reset_final_rank,
-                0,
-                current_rank_df['Текущий ранг'])
+                                                    current_rank_df['Доля отсутствующих стартов'] >=
+                                                        rank_formula_config.race_percentage_to_reset_final_rank,
+                                                    0, current_rank_df['Текущий ранг'])
         else:
             current_rank_df['Итоговый ранг'] = np.nan
 
         # добавляем дату текущего соревнования
-        current_rank_df['Дата текущего соревнования'] = current_rank_df[current_rank_df['Дата соревнования'].notna()][
-            'Дата соревнования'].max()
+        current_rank_df['Дата текущего соревнования'] = current_rank_df[current_rank_df['Дата соревнования'].notna()] \
+                                                                        ['Дата соревнования'].max()
 
         # оставляем только строку по каждому участнику (с датой последнего соревнования, вошедшего в расчет ранга)
         def left_current_rank_only(df):
