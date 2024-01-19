@@ -175,8 +175,9 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
                                   on=participant_fields,
                                   suffixes=(None, '_config'))
             # есть текущий ранг и в группе больше одного участника и номер соревнования уже позволяет использовать текущий ранг спортсменов
-            if df_top['Текущий ранг'].count() > 0 and df[
-                '№ п/п'].dropna().nunique() > 1 and competitions_cnt > race_number_to_start_apply_relative_rank:
+            if (df_top['Текущий ранг'].count() > 0
+                    and df[ '№ п/п'].dropna().nunique() > 1
+                    and competitions_cnt > race_number_to_start_apply_relative_rank):
                 df_top.dropna(subset=['Текущий ранг'], inplace=True)
                 df_top = df_top.sort_values(by='Текущий ранг', axis=0, ascending=False).head(top_relative_rank_results)
                 df_top['Участники сравнит. ранга соревнований'] = (df_top['Фамилия'] + ' ' + df_top['Имя'] + ': ' +
@@ -193,16 +194,18 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
 
             df['N'] = participants_number if participants_number > 1 else 2
 
-            df['Ранг по группе'] = df['Коэффициент уровня старта'].apply(get_decimal) * (
-                    df['tсравнит '].apply(get_decimal) / df['result_in_seconds'].apply(get_decimal)) * df[
-                                       'Сравнит. ранг соревнований'].apply(get_decimal) * (
-                                           Decimal(1) - df['Коэффициент вида старта'].apply(get_decimal) * (
-                                           df['Место'].apply(get_decimal) - 1) / (df['N'].apply(get_decimal) - 1))
+            df['Ранг по группе'] = (df['Коэффициент уровня старта'].apply(get_decimal)
+                                    * (df['tсравнит '].apply(get_decimal) / df['result_in_seconds'].apply(get_decimal))
+                                    * df['Сравнит. ранг соревнований'].apply(get_decimal)
+                                    * (Decimal(1) - df['Коэффициент вида старта'].apply(get_decimal)
+                                       * (df['Место'].apply(get_decimal) - 1) / (df['N'].apply(get_decimal) - 1)
+                                       )
+                                    )
 
             return df
 
-        protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False).apply(
-            calculate_competition_rank, competitions_cnt)
+        protocol_df = protocol_df.groupby(by=['Файл протокола', 'Возрастная группа'], as_index=False) \
+                                 .apply(calculate_competition_rank, competitions_cnt)
 
         # если участник в протоколе был сразу в нескольких возрастных группах,
         # то для него берется лучший ранг из рассчитанных
@@ -241,11 +244,11 @@ def calculate_current_rank(application_config: ApplicationConfig, rank_formula_c
             current_rank_df['% интервал отсутствующих стартов'] = 0
         else:
             current_rank_df['Доля отсутствующих стартов'] = (1 -
-                                                             current_rank_df['Кол-во соревнований у участника'].apply(
-                                                                 get_decimal) /
-                                                             current_rank_df[
-                                                                 'Кол-во cоревнований для текущего ранга'].apply(
-                                                                 get_decimal))
+                                                             current_rank_df['Кол-во соревнований у участника'] \
+                                                                .apply(get_decimal)
+                                                             / current_rank_df['Кол-во cоревнований для текущего ранга'] \
+                                                                .apply(get_decimal)
+                                                             )
 
             def get_floor_for_decimal(s):
                 return np.where(s > 0, np.floor(s * 100) / 100, 0)
