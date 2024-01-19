@@ -1,5 +1,6 @@
 import logging
 import pandas as pd
+import numpy as np
 from decimal import *
 from datetime import datetime
 
@@ -13,7 +14,7 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df.index.name = '№ М+Ж'
     current_rank_df['Участник'] = current_rank_df['Фамилия'] + ' ' + current_rank_df['Имя']
     current_rank_df['Г.р.'] = current_rank_df['Г.р.'].astype(int)
-    current_rank_df['Текущий ранг'] = current_rank_df['Текущий ранг'].apply(lambda x: round(x, 2))
+    current_rank_df['Текущий ранг'] = current_rank_df['Текущий ранг'].map(lambda x: round(x, 2))
     rank_name = '{} на '.format(application_config.rank_to_calculate) + str(final_rank_date)
     columns = {'Текущий ранг': rank_name,
                'Кол-во прошедших соревнований': '№ Старта',
@@ -25,17 +26,16 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     fields_to_save = ['Участник', 'Г.р.', 'Пол', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']
     fields_to_highlight = [rank_name]
     if application_config.last_race_flag == 'да':
-        current_rank_df['Итоговый ранг'] = current_rank_df['Итоговый ранг'].apply(lambda x: round(x, 2))
+        current_rank_df['Итоговый ранг'] = current_rank_df['Итоговый ранг'].map(lambda x: round(x, 2))
         final_rank_name = 'Итоговый ранг сезона {}'.format(final_rank_year)
         columns['Итоговый ранг'] = final_rank_name
         fields_to_save.append(final_rank_name)
         fields_to_highlight.append(final_rank_name)
 
     current_rank_df.rename(columns=columns, inplace=True)
-    current_rank_df['Штраф'] = ((Decimal(1) - current_rank_df['Штраф']) * 100).apply(lambda x: round(x)).astype(
-        int).astype(
-        str) + '%'
-    current_rank_df['Штраф'] = current_rank_df['Штраф'].apply(lambda x: x if x != '0%' else '-')
+    current_rank_df['Штраф'] = ((Decimal(1) - current_rank_df['Штраф']) * 100).map(lambda x: round(x)) \
+                                                                              .astype(int).astype(str) + '%'
+    current_rank_df['Штраф'] = np.where(current_rank_df['Штраф'] == '0%', '-', current_rank_df['Штраф'])
     current_rank_df = current_rank_df[fields_to_save]
 
     # current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset=rank_name)
