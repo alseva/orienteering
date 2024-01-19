@@ -10,12 +10,13 @@ from app_config import ApplicationConfig
 def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd.DataFrame):
     final_rank_date = current_rank_df['Дата текущего соревнования'].max()
     final_rank_year = current_rank_df['Дата текущего соревнования'].max().year
+
     current_rank_df.dropna(subset=['Текущий ранг'], inplace=True)
     current_rank_df.index.name = '№ М+Ж'
     current_rank_df['Участник'] = current_rank_df['Фамилия'] + ' ' + current_rank_df['Имя']
-    current_rank_df['Г.р.'] = current_rank_df['Г.р.'].astype(int)
-    current_rank_df['Текущий ранг'] = current_rank_df['Текущий ранг'].map(lambda x: round(x, 2))
+
     rank_name = '{} на '.format(application_config.rank_to_calculate) + str(final_rank_date)
+
     columns = {'Текущий ранг': rank_name,
                'Кол-во прошедших соревнований': '№ Старта',
                'Кол-во cоревнований для текущего ранга': 'В учет',
@@ -23,28 +24,34 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
                'Доля отсутствующих стартов': '% пропусков',
                '% интервал отсутствующих стартов': '# пропусков',
                'Штраф за отсутствующие старты': 'Штраф'}
+
     fields_to_save = ['Участник', 'Г.р.', 'Пол', rank_name, '№ Старта', 'В учет', 'У участника', 'Штраф']
+
     fields_to_highlight = [rank_name]
+
     if application_config.last_race_flag == 'да':
-        current_rank_df['Итоговый ранг'] = current_rank_df['Итоговый ранг'].map(lambda x: round(x, 2))
         final_rank_name = 'Итоговый ранг сезона {}'.format(final_rank_year)
         columns['Итоговый ранг'] = final_rank_name
         fields_to_save.append(final_rank_name)
         fields_to_highlight.append(final_rank_name)
 
     current_rank_df.rename(columns=columns, inplace=True)
-    current_rank_df['Штраф'] = ((Decimal(1) - current_rank_df['Штраф']) * 100).map(lambda x: round(x)) \
-                                                                              .astype(int).astype(str) + '%'
-    current_rank_df['Штраф'] = np.where(current_rank_df['Штраф'] == '0%', '-', current_rank_df['Штраф'])
     current_rank_df = current_rank_df[fields_to_save]
 
-    # current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color, subset=rank_name)
+    current_rank_df['Штраф'] = ((100 * (Decimal(1) - current_rank_df['Штраф'])).map(lambda x: round(x)) \
+                                                                              .astype(str) + '%').replace('0%', '-')
+    current_rank_df['Г.р.'] = current_rank_df['Г.р.'].replace(0, '-')
 
+    for col in fields_to_highlight:
+        current_rank_df[col] = current_rank_df[col].map(lambda x: round(x, 2))
+
+
+    # Совмещенный ранг спортсменов (М+Ж)
     def highlight_col(x):
         df = x.copy()
-        mask = df['Пол'] == 'Ж'
-        df.loc[mask, :] = 'background-color: pink'
-        df.loc[~mask, :] = 'background-color: lightblue'
+        female_mask = df['Пол'] == 'Ж'
+        df.loc[female_mask, :] = 'background-color: pink'
+        df.loc[~female_mask, :] = 'background-color: lightblue'
         return df
 
     current_rank_df_mix = current_rank_df.copy()
@@ -53,27 +60,24 @@ def save_current_rank(application_config: ApplicationConfig, current_rank_df: pd
     current_rank_df_mix.to_excel(
         application_config.rank_dir / (rank_name + " цветной_{}.xlsx".format(application_config.season)))
 
-    current_rank_df_male = current_rank_df[current_rank_df['Пол'] == 'М'].copy()
-    current_rank_df_male.reset_index(drop=False, inplace=True)
-    current_rank_df_male.index += 1
-    current_rank_df_male.index.name = '№'
-    current_rank_df_male.drop(labels='Пол', axis=1, inplace=True)
-    current_rank_df_male = current_rank_df_male.style.background_gradient(cmap=application_config.rank_color,
+
+    # Ранги спортсменов отдельно: Мужчины, Женщины
+    def format_and_save_rank(current_rank_df_gender, gender):
+        current_rank_df_gender.reset_index(drop=False, inplace=True)
+        current_rank_df_gender.index += 1
+        current_rank_df_gender.index.name = '№'
+        current_rank_df_gender.drop(labels='Пол', axis=1, inplace=True)
+        current_rank_df_gender = current_rank_df_gender.style.background_gradient(cmap=application_config.rank_color,
                                                                           subset=fields_to_highlight)
-    current_rank_df_male.to_excel(
-        application_config.rank_dir / (rank_name + " мужчины_{}.xlsx".format(application_config.season)))
+        current_rank_df_gender.to_excel(
+            application_config.rank_dir / (rank_name + " " + gender +"_{}.xlsx".format(application_config.season)))
+        pass
 
-    current_rank_df_female = current_rank_df[current_rank_df['Пол'] == 'Ж'].copy()
-    current_rank_df_female.reset_index(drop=False, inplace=True)
-    current_rank_df_female.index += 1
-    current_rank_df_female.index.name = '№'
-    current_rank_df_female.drop(labels='Пол', axis=1, inplace=True)
-    current_rank_df_female = current_rank_df_female.style.background_gradient(cmap=application_config.rank_color,
-                                                                              subset=fields_to_highlight)
 
-    current_rank_df_female.to_excel(
-        application_config.rank_dir / (rank_name + " женщины_{}.xlsx".format(application_config.season)))
+    format_and_save_rank(current_rank_df[current_rank_df['Пол'] == 'М'].copy(), 'мужчины')
+    format_and_save_rank(current_rank_df[current_rank_df['Пол'] == 'Ж'].copy(), 'женщины')
 
+    # Совмещенный ранг спортсменов (М+Ж) БЕЗ раскраски
     current_rank_df = current_rank_df.style.background_gradient(cmap=application_config.rank_color,
                                                                 subset=fields_to_highlight)
     current_rank_df.to_excel(application_config.rank_dir / (rank_name + "_{}.xlsx".format(application_config.season)))
